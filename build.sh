@@ -210,7 +210,8 @@ make install
 
 # ---------- 3.2 Boost (cmake install, headers + cmake config) ----------
 cd /build/boost-src
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF \
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -B build -G Ninja -DBUILD_TESTING=OFF \
     -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
 cmake --install build 2>/dev/null || true
 
