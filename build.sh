@@ -318,6 +318,7 @@ autoreconf -fi
     --disable-alt-svc \
     --disable-hsts \
     --without-brotli \
+    --with-libpsl \
     --with-openssl \
     --with-nghttp2 \
     --without-nghttp3 \
@@ -668,66 +669,68 @@ else
     git checkout "${AMULE_SHA}"
 fi
 
+PREFIX="/usr/local"
+
 mkdir -p build && cd build
 
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DBUILD_DAEMON=ON \
-    -DBUILD_AMULECMD=ON \
-    -DBUILD_MONOLITHIC=OFF \
-    -DBUILD_REMOTEGUI=OFF \
+    -DBUILD_TESTING=OFF \
+    -DBoost_DIR=${PREFIX} \
     -DBUILD_WEBSERVER=ON \
     -DBUILD_CAS=ON \
-    -DBUILD_WXCAS=OFF \
-    -DBUILD_ALC=OFF \
-    -DBUILD_ALCC=OFF \
-    -DBUILD_FILEVIEW=OFF \
-    -DBUILD_ED2K=OFF \
-    -DBUILD_TESTING=OFF \
     -DENABLE_NLS=OFF \
+    -DBUILD_MONOLITHIC=OFF \
+    -DBUILD_REMOTEGUI=OFF \
+    -DBUILD_DAEMON=ON \
+    -DBUILD_WXCAS=OFF \
+    -DBUILD_ALCC=ON \
+    -DBUILD_AMULECMD=ON \
+    -DBUILD_ALC=OFF \
+    -DBUILD_FILEVIEW=ON \
+    -DCMAKE_INSTALL_PREFIX=${PREFIX} \
     -DENABLE_IP2COUNTRY=OFF \
     -DENABLE_UPNP=ON \
-    -DZLIB_INCLUDE_DIR=/usr/local/include \
-    -DZLIB_LIBRARY=/usr/local/lib/libz.a \
-    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS} -I/usr/local/include" \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS} -I/usr/local/include" \
-    -DCMAKE_EXE_LINKER_FLAGS="-static -L/usr/local/lib -lrpmalloc" \
+    -DZLIB_INCLUDE_DIR=${PREFIX}/include \
+    -DZLIB_LIBRARY=${PREFIX}/lib/libz.a \
+    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS} -I${PREFIX}/include" \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS} -I${PREFIX}/include" \
+    -DCMAKE_EXE_LINKER_FLAGS="-static -L${PREFIX}/lib -lrpmalloc" \
     -DCMAKE_MODULE_LINKER_FLAGS="-static" \
     -DPKG_CONFIG_EXECUTABLE="pkg-config --static" \
     -DCRYPTOPP_INCLUDE_PREFIX="cryptopp" \
-    -DCRYPTOPP_LIBRARY=/usr/local/lib/libcryptopp.a \
-    -DCRYPTOPP_INCLUDE_DIR=/usr/local/include
+    -DCRYPTOPP_LIBRARY=${PREFIX}/lib/libcryptopp.a \
+    -DCRYPTOPP_INCLUDE_DIR=${PREFIX}/include
 
 # Sometimes cmake configure needs a second pass to pick up everything
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DBUILD_DAEMON=ON \
-    -DBUILD_AMULECMD=ON \
-    -DBUILD_MONOLITHIC=OFF \
-    -DBUILD_REMOTEGUI=OFF \
+    -DBUILD_TESTING=OFF \
+    -DBoost_DIR=${PREFIX} \
     -DBUILD_WEBSERVER=ON \
     -DBUILD_CAS=ON \
-    -DBUILD_WXCAS=OFF \
-    -DBUILD_ALC=OFF \
-    -DBUILD_ALCC=OFF \
-    -DBUILD_FILEVIEW=OFF \
-    -DBUILD_ED2K=OFF \
-    -DBUILD_TESTING=OFF \
     -DENABLE_NLS=OFF \
+    -DBUILD_MONOLITHIC=OFF \
+    -DBUILD_REMOTEGUI=OFF \
+    -DBUILD_DAEMON=ON \
+    -DBUILD_WXCAS=OFF \
+    -DBUILD_ALCC=ON \
+    -DBUILD_AMULECMD=ON \
+    -DBUILD_ALC=OFF \
+    -DBUILD_FILEVIEW=ON \
+    -DCMAKE_INSTALL_PREFIX=${PREFIX} \
     -DENABLE_IP2COUNTRY=OFF \
     -DENABLE_UPNP=ON \
-    -DZLIB_INCLUDE_DIR=/usr/local/include \
-    -DZLIB_LIBRARY=/usr/local/lib/libz.a \
-    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS} -I/usr/local/include" \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS} -I/usr/local/include" \
-    -DCMAKE_EXE_LINKER_FLAGS="-static -L/usr/local/lib -lrpmalloc" \
+    -DZLIB_INCLUDE_DIR=${PREFIX}/include \
+    -DZLIB_LIBRARY=${PREFIX}/lib/libz.a \
+    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS} -I${PREFIX}/include" \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS} -I${PREFIX}/include" \
+    -DCMAKE_EXE_LINKER_FLAGS="-static -L${PREFIX}/lib -lrpmalloc" \
     -DCMAKE_MODULE_LINKER_FLAGS="-static" \
     -DPKG_CONFIG_EXECUTABLE="pkg-config --static" \
     -DCRYPTOPP_INCLUDE_PREFIX="cryptopp" \
-    -DCRYPTOPP_LIBRARY=/usr/local/lib/libcryptopp.a \
-    -DCRYPTOPP_INCLUDE_DIR=/usr/local/include
+    -DCRYPTOPP_LIBRARY=${PREFIX}/lib/libcryptopp.a \
+    -DCRYPTOPP_INCLUDE_DIR=${PREFIX}/include
 
 make -j"$(nproc)"
 
