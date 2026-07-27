@@ -55,24 +55,9 @@ esac
 BASE_CFLAGS="${ARCH_CFLAGS} -static -O3 -pipe"
 
 # ---------------------------------------------------------------------------
-# Version pinning
+# Version pinning (static versions only — dynamic fetches below)
 # ---------------------------------------------------------------------------
 MUSL_VERSION="1.2.6"
-# Boost: latest non-beta tag (e.g. boost-1.91.0)
-BOOST_VERSION=$(curl -fsS "https://api.github.com/repos/boostorg/boost/tags?per_page=20" | \
-    jq -r '[.[].name | select(test("^boost-[0-9]+\\.")) | select(test("beta") | not)][0]')
-echo "Latest Boost version: ${BOOST_VERSION}"
-
-# Crypto++: latest tag
-CRYPTOPP_VERSION=$(curl -fsS "https://api.github.com/repos/cryptopp-modern/cryptopp-modern/tags?per_page=5" | \
-    jq -r '.[0].name')
-echo "Latest Crypto++ version: ${CRYPTOPP_VERSION}"
-
-# wxWidgets: latest stable v3.2.x release (v3.3.x is development)
-WXWIDGETS_VERSION=$(curl -fsS "https://api.github.com/repos/wxWidgets/wxWidgets/releases" | \
-    jq -r '[.[] | select(.tag_name | startswith("v3.2")) | .tag_name][0]')
-echo "Latest wxWidgets stable version: ${WXWIDGETS_VERSION}"
-
 READLINE_VERSION="8.2"
 
 # ---------------------------------------------------------------------------
@@ -99,6 +84,25 @@ apk add --no-cache \
 
 export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
 export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+# ---------------------------------------------------------------------------
+# Dynamic version fetch (curl & jq available now)
+# ---------------------------------------------------------------------------
+
+# Boost: latest non-beta tag (e.g. boost-1.91.0)
+BOOST_VERSION=$(curl -fsS "https://api.github.com/repos/boostorg/boost/tags?per_page=20" | \
+    jq -r '[.[].name | select(test("^boost-[0-9]+\\.")) | select(test("beta") | not)][0]')
+echo "Latest Boost version: ${BOOST_VERSION}"
+
+# Crypto++: latest tag
+CRYPTOPP_VERSION=$(curl -fsS "https://api.github.com/repos/cryptopp-modern/cryptopp-modern/tags?per_page=5" | \
+    jq -r '.[0].name')
+echo "Latest Crypto++ version: ${CRYPTOPP_VERSION}"
+
+# wxWidgets: latest stable v3.2.x release (v3.3.x is development)
+WXWIDGETS_VERSION=$(curl -fsS "https://api.github.com/repos/wxWidgets/wxWidgets/releases" | \
+    jq -r '[.[] | select(.tag_name | startswith("v3.2")) | .tag_name][0]')
+echo "Latest wxWidgets stable version: ${WXWIDGETS_VERSION}"
 
 # ---------------------------------------------------------------------------
 # 2. Build musl libc
