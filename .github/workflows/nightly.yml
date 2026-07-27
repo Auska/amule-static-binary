@@ -161,7 +161,7 @@ jobs:
             -e "SUFFIX=${SUFFIX}" \
             -v "${{ github.workspace }}/build.sh:/build.sh:ro" \
             -v "${{ github.workspace }}/output:/output" \
-            alpine:latest /bin/sh /build.sh
+            alpine:latest /bin/sh -c "apk add bash && bash /build.sh"
 
       - name: 验证二进制文件是静态链接的
         run: |
