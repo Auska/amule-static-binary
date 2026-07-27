@@ -380,7 +380,7 @@ make install
 # ---------- 3.16 pupnp ----------
 cd "/build/pupnp-${PUPNP_VERSION}"
 cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
-    -DUPNP_BUILD_SHARED=ON -DUPNP_BUILD_STATIC=ON -DUPNP_BUILD_SAMPLES=OFF \
+    -DUPNP_BUILD_SHARED=OFF -DUPNP_BUILD_STATIC=ON -DUPNP_BUILD_SAMPLES=OFF \
     -DUPNP_ENABLE_TESTING=OFF -DUPNP_ENABLE_OPEN_SSL=OFF -DUPNP_ENABLE_IPV6=ON \
     -DUPNP_ENABLE_DEBUG=OFF \
     -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
@@ -400,6 +400,9 @@ fi
 mkdir -p build && cd build
 # cryptopp-modern uses a different version scheme; bypass the strict version check
 sed -i 's/set (MIN_CRYPTOPP_VERSION 5.6)/set (MIN_CRYPTOPP_VERSION 0.0)/' ../CMakeLists.txt
+# pupnp: static-only build uses UPNP::Static, not UPNP::Shared
+sed -i 's/UPNP::Shared/UPNP::Static/g' \
+    ../cmake/upnp.cmake ../src/CMakeLists.txt ../src/webserver/src/CMakeLists.txt 2>/dev/null || true
 cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
     -DBUILD_WEBSERVER=ON -DBUILD_CAS=ON -DENABLE_NLS=OFF -DBUILD_MONOLITHIC=OFF \
     -DBUILD_REMOTEGUI=OFF -DBUILD_DAEMON=ON -DBUILD_WXCAS=OFF -DBUILD_ALCC=ON \
