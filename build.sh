@@ -89,10 +89,9 @@ export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 # Dynamic version fetch (curl & jq available now)
 # ---------------------------------------------------------------------------
 
-# Boost: latest non-beta tag (e.g. boost-1.91.0)
-BOOST_VERSION=$(curl -fsS "https://api.github.com/repos/boostorg/boost/tags?per_page=20" | \
-    jq -r '[.[].name | select(test("^boost-[0-9]+\\.")) | select(test("beta") | not)][0]')
-echo "Latest Boost version: ${BOOST_VERSION}"
+# Boost: use CMake release from GitHub releases
+BOOST_VERSION="boost-1.91.0-1"
+echo "Boost version: ${BOOST_VERSION}"
 
 # Crypto++: latest tag
 CRYPTOPP_VERSION=$(curl -fsS "https://api.github.com/repos/cryptopp-modern/cryptopp-modern/tags?per_page=5" | \
@@ -368,18 +367,21 @@ make install
 echo "Building Boost ${BOOST_VERSION}"
 
 cd /build
-curl -fsSLO "https://github.com/boostorg/boost/archive/refs/tags/${BOOST_VERSION}.tar.gz"
+BOOST_CMAKE_FILE="${BOOST_VERSION}-cmake.tar.xz"
+curl -fsSLO "https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_CMAKE_FILE}"
 mkdir -p boost-src
 cd boost-src
-tar xf "/build/${BOOST_VERSION}.tar.gz" --strip-components=1
+tar xf "/build/${BOOST_CMAKE_FILE}" --strip-components=1
 
 # For aMule's use case (boost::asio, header-only boost::system with
 # BOOST_ERROR_CODE_HEADER_ONLY), we only need the headers. No compiled
 # Boost libraries are required on Linux.
 cp -r boost /usr/local/include/boost
 
-# Extract version components from tag (e.g. boost-1.91.0 → 1.91.0, CMake 108100)
+# Extract version components from tag (e.g. boost-1.91.0-1 → 1.91.0, CMake 108100)
 BOOST_VERSION_NUM="${BOOST_VERSION#boost-}"
+# Strip release revision suffix like -1, -2
+BOOST_VERSION_NUM="${BOOST_VERSION_NUM%%-*}"
 BOOST_VERSION_MAJOR="${BOOST_VERSION_NUM%%.*}"
 BOOST_VERSION_MINOR="${BOOST_VERSION_NUM#*.}"
 BOOST_VERSION_MINOR="${BOOST_VERSION_MINOR%.*}"
