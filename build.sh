@@ -333,6 +333,19 @@ cd "/build/libgd-${GD_VERSION}"
     CFLAGS="${BASE_CFLAGS}" CXXFLAGS="${BASE_CFLAGS}"
 make -j"$(nproc)"
 make install
+# gdlib.pc: add -lpng -lz so PkgConfig::gdlib resolves transitive deps
+GD_LIB_VERSION="${GD_VERSION#gd-}"
+cat > /usr/local/lib/pkgconfig/gdlib.pc << GD_PC_EOF
+prefix=/usr/local
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+Name: gdlib
+Description: GD graphics library
+Version: ${GD_LIB_VERSION}
+Libs: -L\${libdir} -lgd -lpng -lz
+Cflags: -I\${includedir}
+GD_PC_EOF
 
 # ---------- 3.14 Crypto++ ----------
 cd "/build/cryptopp-modern-${CRYPTOPP_VERSION}"
@@ -387,8 +400,6 @@ fi
 mkdir -p build && cd build
 # cryptopp-modern uses a different version scheme; bypass the strict version check
 sed -i 's/set (MIN_CRYPTOPP_VERSION 5.6)/set (MIN_CRYPTOPP_VERSION 0.0)/' ../CMakeLists.txt
-# CAS: link png/zlib after gdlib (static linking needs consumer before provider)
-sed -i 's/PRIVATE PkgConfig::gdlib$/PRIVATE PkgConfig::gdlib -lpng -lz/' ../src/utils/cas/CMakeLists.txt
 cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
     -DBUILD_WEBSERVER=ON -DBUILD_CAS=ON -DENABLE_NLS=OFF -DBUILD_MONOLITHIC=OFF \
     -DBUILD_REMOTEGUI=OFF -DBUILD_DAEMON=ON -DBUILD_WXCAS=OFF -DBUILD_ALCC=ON \
@@ -398,7 +409,7 @@ cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
     -DZLIB_INCLUDE_DIR=${DEPS_PREFIX}/include -DZLIB_LIBRARY=${DEPS_PREFIX}/lib/libz.a \
     -DCMAKE_CXX_FLAGS="${BASE_CFLAGS} -I${DEPS_PREFIX}/include" \
     -DCMAKE_C_FLAGS="${BASE_CFLAGS} -I${DEPS_PREFIX}/include" \
-    -DCMAKE_EXE_LINKER_FLAGS="-static -L${DEPS_PREFIX}/lib -lrpmalloc -lpng -lz" \
+    -DCMAKE_EXE_LINKER_FLAGS="-static -L${DEPS_PREFIX}/lib -lrpmalloc" \
     -DCMAKE_MODULE_LINKER_FLAGS="-static" \
     -DCMAKE_PREFIX_PATH=${DEPS_PREFIX} \
     -DCRYPTOPP_INCLUDE_PREFIX="cryptopp" \
