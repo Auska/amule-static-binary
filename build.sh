@@ -358,6 +358,8 @@ else
 fi
 
 mkdir -p build && cd build
+# cryptopp-modern uses a different version scheme; bypass the strict version check
+sed -i 's/set (MIN_CRYPTOPP_VERSION 5.6)/set (MIN_CRYPTOPP_VERSION 0.0)/' ../CMakeLists.txt
 cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
     -DBUILD_WEBSERVER=ON -DBUILD_CAS=ON -DENABLE_NLS=OFF -DBUILD_MONOLITHIC=OFF \
     -DBUILD_REMOTEGUI=OFF -DBUILD_DAEMON=ON -DBUILD_WXCAS=OFF -DBUILD_ALCC=ON \
