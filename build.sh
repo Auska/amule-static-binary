@@ -229,7 +229,6 @@ cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OF
     -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
 cmake --build build
 cmake --install build
-rm -f /usr/lib/pkgconfig/zlib.pc 2>/dev/null || true
 
 # ---------- 3.5 libressl ----------
 cd "/build/libressl-${LIBRESSL_VERSION}"
