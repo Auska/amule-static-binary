@@ -388,7 +388,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBoost_DIR=${DEPS_PREFI
     -DCMAKE_C_FLAGS="${BASE_CFLAGS} -I${DEPS_PREFIX}/include" \
     -DCMAKE_EXE_LINKER_FLAGS="-static -L${DEPS_PREFIX}/lib -lrpmalloc" \
     -DCMAKE_MODULE_LINKER_FLAGS="-static" \
-    -DPKG_CONFIG_EXECUTABLE="pkg-config --static" \
+    -DCMAKE_PREFIX_PATH=${DEPS_PREFIX} \
     -DCRYPTOPP_INCLUDE_PREFIX="cryptopp" \
     -DCRYPTOPP_LIBRARY=${DEPS_PREFIX}/lib/libcryptopp.a \
     -DCRYPTOPP_INCLUDE_DIR=${DEPS_PREFIX}/include
