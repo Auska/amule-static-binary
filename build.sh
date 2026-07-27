@@ -260,6 +260,7 @@ make install
 # ---------- 3.6 Boost (cmake install) ----------
 cd /build/boost-src
 cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF \
+    -DBOOST_ENABLE_TESTING=OFF \
     -DBUILD_SHARED_LIBS=OFF \
     -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
 cmake --build build
