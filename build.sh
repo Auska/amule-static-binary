@@ -154,10 +154,11 @@ tar xf "c-ares-${CARES_VERSION}.tar.gz"
 curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/curl/curl/archive/refs/tags/curl-${CURL_VERSION//./_}.tar.gz"
 tar xf "curl-${CURL_VERSION//./_}.tar.gz"
 
-# Boost (source tarball — headers in top-level boost/)
-curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/boostorg/boost/archive/refs/tags/${BOOST_VERSION}.tar.gz"
+# Boost (CMake release from GitHub Releases)
+BOOST_CMAKE_FILE="${BOOST_VERSION}-cmake.tar.xz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_CMAKE_FILE}"
 mkdir -p boost-src && cd boost-src
-tar xf "/build/${BOOST_VERSION}.tar.gz" --strip-components=1
+tar xf "/build/${BOOST_CMAKE_FILE}" --strip-components=1
 cd /build
 
 # cryptopp
@@ -315,51 +316,12 @@ cd "/build/libgd-${GD_VERSION}"
 make -j"$(nproc)"
 make install
 
-# ---------- 3.13 Boost (headers only) ----------
+# ---------- 3.13 Boost (cmake install) ----------
 cd /build/boost-src
-cp -r boost /usr/local/include/boost
-mkdir -p "/usr/local/lib/cmake/boost_headers-${BOOST_VERSION_NUM}"
-cat > "/usr/local/lib/cmake/boost_headers-${BOOST_VERSION_NUM}/boost_headers-config.cmake" << 'BOOST_CMAKE_EOF'
-if(NOT TARGET Boost::headers)
-    add_library(Boost::headers INTERFACE IMPORTED)
-    set_target_properties(Boost::headers PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/../../include"
-    )
-endif()
-BOOST_CMAKE_EOF
-
-cat > /usr/local/lib/cmake/BoostConfig.cmake << BOOST_CONFIG_EOF
-include(CMakeFindDependencyMacro)
-if(NOT TARGET Boost::headers)
-    add_library(Boost::headers INTERFACE IMPORTED)
-    set_target_properties(Boost::headers PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "/usr/local/include"
-    )
-endif()
-set(Boost_FOUND TRUE)
-set(Boost_VERSION ${BOOST_VERSION_CMAKE})
-set(Boost_VERSION_STRING "${BOOST_VERSION_NUM}")
-set(Boost_INCLUDE_DIRS "/usr/local/include")
-set(Boost_INCLUDE_DIR "/usr/local/include")
-foreach(_component asio system date_time regex filesystem thread)
-    if(NOT TARGET Boost::\${_component})
-        add_library(Boost::\${_component} INTERFACE IMPORTED)
-        target_link_libraries(Boost::\${_component} INTERFACE Boost::headers)
-    endif()
-endforeach()
-BOOST_CONFIG_EOF
-
-cat > /usr/local/lib/cmake/BoostConfigVersion.cmake << BOOST_VERSION_EOF
-set(PACKAGE_VERSION "${BOOST_VERSION_NUM}")
-if("\${PACKAGE_FIND_VERSION}" VERSION_GREATER "${BOOST_VERSION_NUM}")
-    set(PACKAGE_VERSION_COMPATIBLE FALSE)
-else()
-    set(PACKAGE_VERSION_COMPATIBLE TRUE)
-    if("\${PACKAGE_FIND_VERSION}" VERSION_EQUAL "${BOOST_VERSION_NUM}")
-        set(PACKAGE_VERSION_EXACT TRUE)
-    endif()
-endif()
-BOOST_VERSION_EOF
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF \
+    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
+cmake --build build -j"$(nproc)"
+cmake --install build
 
 # ---------- 3.14 Crypto++ ----------
 cd "/build/cryptopp-modern-${CRYPTOPP_VERSION}"
