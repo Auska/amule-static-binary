@@ -253,7 +253,15 @@ mkdir -p build_w && cd build_w
 make -j"$(nproc)"
 make install.libs install.includes
 
-# ---------- 3.7 libpsl ----------
+# ---------- 3.7 readline (after ncurses) ----------
+cd "/build/readline-${READLINE_VERSION}"
+./configure --prefix=/usr/local --enable-static --disable-shared --with-curses \
+    PKG_CONFIG="pkg-config --static" CFLAGS="${BASE_CFLAGS}" \
+    CPPFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib -static"
+make -j"$(nproc)" SHLIB_LIBS="-lncurses -ltinfo"
+make install
+
+# ---------- 3.8 libpsl ----------
 cd "/build/libpsl-${LIBPSL_VERSION}"
 ./configure --prefix=/usr/local --enable-static --disable-shared --disable-gtk-doc \
     --disable-runtime --disable-nls --disable-man --without-libintl-prefix --without-libiconv-prefix \
@@ -261,7 +269,7 @@ cd "/build/libpsl-${LIBPSL_VERSION}"
 make -j"$(nproc)"
 make install
 
-# ---------- 3.8 c-ares ----------
+# ---------- 3.9 c-ares ----------
 cd "/build/c-ares-${CARES_VERSION}"
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DCARES_STATIC=ON -DCARES_SHARED=OFF \
@@ -269,7 +277,7 @@ cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
 cmake --build build -j"$(nproc)"
 cmake --install build
 
-# ---------- 3.9 curl ----------
+# ---------- 3.10 curl ----------
 cd "/build/curl-curl-${CURL_VERSION//./_}"
 autoreconf -fi
 ./configure --prefix=/usr/local --enable-static --disable-shared --disable-debug \
@@ -284,7 +292,38 @@ autoreconf -fi
 make -j"$(nproc)"
 make install
 
-# ---------- 3.10 Boost (headers only) ----------
+# ---------- 3.11 libpng ----------
+cd "/build/libpng-${LIBPNG_TAG#v}"
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
+    -DPNG_SHARED=OFF -DPNG_STATIC=ON -DPNG_TESTS=OFF -DPNG_TOOLS=OFF \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
+cmake --build build -j"$(nproc)"
+cmake --install build
+
+# ---------- 3.12 libgd ----------
+cd "/build/libgd-${GD_VERSION}"
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
+    -DENABLE_PNG=ON -DENABLE_JPEG=OFF -DENABLE_TIFF=OFF -DENABLE_WEBP=OFF \
+    -DENABLE_FREETYPE=OFF -DENABLE_FONTCONFIG=OFF -DENABLE_XPM=OFF -DENABLE_ICONV=OFF \
+    -DENABLE_LIQ=OFF -DENABLE_RAQM=OFF -DENABLE_HEIF=OFF -DENABLE_AVIF=OFF \
+    -DENABLE_GD_FORMATS=OFF -DBUILD_TEST=OFF -DENABLE_CPP=OFF \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
+cmake --build build -j"$(nproc)"
+cmake --install build
+
+cat > /usr/local/lib/pkgconfig/gdlib.pc << GD_PC_EOF
+prefix=/usr/local
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+Name: gdlib
+Description: GD graphics library
+Version: ${GD_LIB_VERSION}
+Libs: -L\${libdir} -lgd -lpng -lz
+Cflags: -I\${includedir}
+GD_PC_EOF
+
+# ---------- 3.13 Boost (headers only) ----------
 cd /build/boost-src
 cp -r boost /usr/local/include/boost
 mkdir -p "/usr/local/lib/cmake/boost_headers-${BOOST_VERSION_NUM}"
@@ -330,7 +369,7 @@ else()
 endif()
 BOOST_VERSION_EOF
 
-# ---------- 3.11 Crypto++ ----------
+# ---------- 3.14 Crypto++ ----------
 cd "/build/cryptopp-modern-${CRYPTOPP_VERSION}"
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DCRYPTOPP_BUILD_TESTING=OFF -DCRYPTOPP_INSTALL=ON \
@@ -339,7 +378,7 @@ cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
 cmake --build build -j"$(nproc)"
 cmake --install build
 
-# ---------- 3.12 wxWidgets ----------
+# ---------- 3.15 wxWidgets ----------
 cd "/build/wxWidgets-${WX_VERSION_STRIP}"
 mkdir -p build_wx && cd build_wx
 ../configure --prefix=/usr/local --disable-shared --enable-static --disable-gui \
@@ -365,45 +404,6 @@ cat > /usr/local/bin/wx-config << WXCONFIG_SCRIPT
 exec "${WX_CONFIG_REAL}" --static "\$@"
 WXCONFIG_SCRIPT
 chmod +x /usr/local/bin/wx-config
-
-# ---------- 3.13 readline ----------
-cd "/build/readline-${READLINE_VERSION}"
-./configure --prefix=/usr/local --enable-static --disable-shared --with-curses \
-    PKG_CONFIG="pkg-config --static" CFLAGS="${BASE_CFLAGS}" \
-    CPPFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib -static"
-make -j"$(nproc)" SHLIB_LIBS="-lncurses -ltinfo"
-make install
-
-# ---------- 3.14 libpng ----------
-cd "/build/libpng-${LIBPNG_TAG#v}"
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
-    -DPNG_SHARED=OFF -DPNG_STATIC=ON -DPNG_TESTS=OFF -DPNG_TOOLS=OFF \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
-cmake --build build -j"$(nproc)"
-cmake --install build
-
-# ---------- 3.15 libgd ----------
-cd "/build/libgd-${GD_VERSION}"
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
-    -DENABLE_PNG=ON -DENABLE_JPEG=OFF -DENABLE_TIFF=OFF -DENABLE_WEBP=OFF \
-    -DENABLE_FREETYPE=OFF -DENABLE_FONTCONFIG=OFF -DENABLE_XPM=OFF -DENABLE_ICONV=OFF \
-    -DENABLE_LIQ=OFF -DENABLE_RAQM=OFF -DENABLE_HEIF=OFF -DENABLE_AVIF=OFF \
-    -DENABLE_GD_FORMATS=OFF -DBUILD_TEST=OFF -DENABLE_CPP=OFF \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
-cmake --build build -j"$(nproc)"
-cmake --install build
-
-cat > /usr/local/lib/pkgconfig/gdlib.pc << GD_PC_EOF
-prefix=/usr/local
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
-includedir=\${prefix}/include
-Name: gdlib
-Description: GD graphics library
-Version: ${GD_LIB_VERSION}
-Libs: -L\${libdir} -lgd -lpng -lz
-Cflags: -I\${includedir}
-GD_PC_EOF
 
 # ---------- 3.16 pupnp ----------
 cd "/build/pupnp-${PUPNP_VERSION}"
