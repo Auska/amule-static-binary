@@ -702,40 +702,8 @@ cmake .. \
     -DCRYPTOPP_LIBRARY=${PREFIX}/lib/libcryptopp.a \
     -DCRYPTOPP_INCLUDE_DIR=${PREFIX}/include
 
-# Sometimes cmake configure needs a second pass to pick up everything
-cmake .. \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DBUILD_TESTING=OFF \
-    -DBoost_DIR=${PREFIX} \
-    -DBUILD_WEBSERVER=ON \
-    -DBUILD_CAS=ON \
-    -DENABLE_NLS=OFF \
-    -DBUILD_MONOLITHIC=OFF \
-    -DBUILD_REMOTEGUI=OFF \
-    -DBUILD_DAEMON=ON \
-    -DBUILD_WXCAS=OFF \
-    -DBUILD_ALCC=ON \
-    -DBUILD_AMULECMD=ON \
-    -DBUILD_ALC=OFF \
-    -DBUILD_FILEVIEW=ON \
-    -DCMAKE_INSTALL_PREFIX=${PREFIX} \
-    -DENABLE_IP2COUNTRY=OFF \
-    -DENABLE_UPNP=ON \
-    -DZLIB_INCLUDE_DIR=${PREFIX}/include \
-    -DZLIB_LIBRARY=${PREFIX}/lib/libz.a \
-    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS} -I${PREFIX}/include" \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS} -I${PREFIX}/include" \
-    -DCMAKE_EXE_LINKER_FLAGS="-static -L${PREFIX}/lib -lrpmalloc" \
-    -DCMAKE_MODULE_LINKER_FLAGS="-static" \
-    -DPKG_CONFIG_EXECUTABLE="pkg-config --static" \
-    -DCRYPTOPP_INCLUDE_PREFIX="cryptopp" \
-    -DCRYPTOPP_LIBRARY=${PREFIX}/lib/libcryptopp.a \
-    -DCRYPTOPP_INCLUDE_DIR=${PREFIX}/include
-
 make -j"$(nproc)"
 
-# ---------------------------------------------------------------------------
-# 19. Install binaries and package output
 # ---------------------------------------------------------------------------
 make install
 
