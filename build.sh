@@ -60,7 +60,10 @@ BASE_CFLAGS="${ARCH_CFLAGS} -static -O3 -pipe"
 MUSL_VERSION="1.2.6"
 BOOST_VERSION="boost-1.91.0"
 CRYPTOPP_VERSION="2026.7.1"
-WXWIDGETS_VERSION="v3.2.11"
+# wxWidgets: pick latest stable v3.2.x release (v3.3.x is development)
+WXWIDGETS_VERSION=$(curl -fsS "https://api.github.com/repos/wxWidgets/wxWidgets/releases" | \
+    jq -r '[.[] | select(.tag_name | startswith("v3.2")) | .tag_name][0]')
+echo "Latest wxWidgets stable version: ${WXWIDGETS_VERSION}"
 READLINE_VERSION="8.2"
 
 # ---------------------------------------------------------------------------
