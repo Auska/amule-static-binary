@@ -296,7 +296,7 @@ make install
 # ---------- 3.10 c-ares ----------
 cd "/build/c-ares-${CARES_VERSION}"
 cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
-    -DCARES_STATIC=ON -DCARES_SHARED=OFF \
+    -DCARES_STATIC=ON -DCARES_SHARED=OFF -DCARES_BUILD_TESTS=OFF \
     -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_INSTALL_LIBDIR=lib
 cmake --build build
 cmake --install build
