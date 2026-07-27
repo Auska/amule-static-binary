@@ -89,8 +89,9 @@ export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 # Dynamic version fetch (curl & jq available now)
 # ---------------------------------------------------------------------------
 
-# Boost: use CMake release from GitHub releases
-BOOST_VERSION="boost-1.91.0-1"
+# Boost: fetch latest release tag, then download CMake tarball from releases
+BOOST_VERSION=$(curl -fsS "https://api.github.com/repos/boostorg/boost/releases?per_page=10" | \
+    jq -r '[.[] | select(.tag_name | test("beta") | not) | .tag_name][0]')
 echo "Boost version: ${BOOST_VERSION}"
 
 # Crypto++: latest tag
