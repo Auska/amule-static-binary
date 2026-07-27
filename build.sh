@@ -147,11 +147,11 @@ tar xf "c-ares-${CARES_VERSION}.tar.gz"
 curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/curl/curl/archive/refs/tags/curl-${CURL_VERSION//./_}.tar.gz"
 tar xf "curl-${CURL_VERSION//./_}.tar.gz"
 
-# Boost (CMake release from GitHub Releases)
-BOOST_CMAKE_FILE="${BOOST_VERSION}-cmake.tar.xz"
-curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_CMAKE_FILE}"
+# Boost (b2 tarball)
+BOOST_B2_FILE="${BOOST_VERSION}-b2-nodocs.tar.xz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_B2_FILE}"
 mkdir -p boost-src && cd boost-src
-tar xf "/build/${BOOST_CMAKE_FILE}" --strip-components=1
+tar xf "/build/${BOOST_B2_FILE}" --strip-components=1
 cd /build
 
 # cryptopp
@@ -208,26 +208,11 @@ cd "musl-${MUSL_VERSION}"
 make -j"$(nproc)"
 make install
 
-# ---------- 3.2 Boost (cmake install, headers + cmake config) ----------
+# ---------- 3.2 Boost (b2 install, headers + cmake config) ----------
 cd /build/boost-src
-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -B build -G Ninja -DBUILD_TESTING=OFF \
-    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
-# Install cmake config from build tree (generated during configure)
-found=$(find build -type f \( -name 'BoostConfig.cmake' -o -name 'boost-config.cmake' \) 2>/dev/null | head -1)
-if [ -n "$found" ]; then
-    cp -r "$(dirname "$found")" /usr/local/lib/cmake/
-    echo "Boost cmake config installed from: $found"
-else
-    # Fallback: search entire build tree
-    found=$(find build -type f -name '*Boost*config*' 2>/dev/null | head -1)
-    [ -n "$found" ] && cp -r "$(dirname "$found")" /usr/local/lib/cmake/ || true
-fi
-# Merge headers from all library subdirectories
-mkdir -p /usr/local/include/boost
-for hdir in libs/*/include/boost; do
-    [ -d "$hdir" ] && cp -r "$hdir"/* /usr/local/include/boost/ 2>/dev/null || true
-done
+./bootstrap.sh
+./b2 headers
+./b2 install --prefix=/usr/local
 
 # ---------- 3.3 rpmalloc ----------
 cd "/build/rpmalloc-${RPMALLOC_VERSION}"
