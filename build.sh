@@ -58,7 +58,12 @@ BASE_CFLAGS="${ARCH_CFLAGS} -static -O3 -pipe"
 # Version pinning (static versions only — dynamic fetches below)
 # ---------------------------------------------------------------------------
 MUSL_VERSION="1.2.6"
-READLINE_VERSION="8.3"
+# Readline: latest stable from GNU FTP
+READLINE_VERSION=$(curl -fsSL "https://ftp.gnu.org/gnu/readline/" | \
+    grep -oP 'readline-\d+\.\d+\.tar\.gz' | \
+    sed 's/readline-//;s/\.tar\.gz//' | \
+    sort -V | tail -1)
+echo "Readline version: ${READLINE_VERSION}"
 
 # ---------------------------------------------------------------------------
 # 1. System packages
