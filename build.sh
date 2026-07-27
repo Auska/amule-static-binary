@@ -208,7 +208,13 @@ cd "musl-${MUSL_VERSION}"
 make -j"$(nproc)"
 make install
 
-# ---------- 3.2 rpmalloc ----------
+# ---------- 3.2 Boost (cmake install, headers + cmake config) ----------
+cd /build/boost-src
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF \
+    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
+cmake --install build 2>/dev/null || true
+
+# ---------- 3.3 rpmalloc ----------
 cd "/build/rpmalloc-${RPMALLOC_VERSION}"
 case "${ARCH}" in amd64*|x86_64*) RPMALLOC_ARCH="x86-64" ;; arm64|aarch64) RPMALLOC_ARCH="arm64" ;; *) RPMALLOC_ARCH="" ;; esac
 python3 configure.py --lto -c release --toolchain gcc ${RPMALLOC_ARCH:+-a "${RPMALLOC_ARCH}"}
@@ -216,7 +222,7 @@ ninja -j"$(nproc)" "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a"
 mkdir -p /usr/local/lib
 cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a" /usr/local/lib/
 
-# ---------- 3.3 zlib-ng ----------
+# ---------- 3.4 zlib-ng ----------
 cd "/build/zlib-ng-${ZLIB_NG_VERSION}"
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF \
     -DZLIB_COMPAT=ON -DWITH_AVX512=OFF -DWITH_AVX2=${ZLIB_AVX2} \
@@ -225,7 +231,7 @@ cmake --build build -j"$(nproc)"
 cmake --install build
 rm -f /usr/lib/pkgconfig/zlib.pc 2>/dev/null || true
 
-# ---------- 3.4 libressl ----------
+# ---------- 3.5 libressl ----------
 cd "/build/libressl-${LIBRESSL_VERSION}"
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DLIBRESSL_APPS=OFF -DLIBRESSL_TESTS=OFF \
@@ -233,7 +239,7 @@ cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
 cmake --build build -j"$(nproc)"
 cmake --install build
 
-# ---------- 3.5 nghttp2 ----------
+# ---------- 3.6 nghttp2 ----------
 cd "/build/nghttp2-${NGHTTP2_VERSION}"
 autoreconf -fi
 ./configure --enable-static --disable-shared --disable-debug --enable-lib-only \
@@ -241,7 +247,7 @@ autoreconf -fi
 make -j"$(nproc)"
 make install
 
-# ---------- 3.6 ncurses ----------
+# ---------- 3.7 ncurses ----------
 cd "/build/${NCURSES_DIR}"
 mkdir -p build_w && cd build_w
 ../configure --prefix=/usr/local --enable-static --disable-shared --enable-pc-files \
@@ -252,7 +258,7 @@ mkdir -p build_w && cd build_w
 make -j"$(nproc)"
 make install.libs install.includes
 
-# ---------- 3.7 readline (after ncurses) ----------
+# ---------- 3.8 readline (after ncurses) ----------
 cd "/build/readline-${READLINE_VERSION}"
 ./configure --prefix=/usr/local --enable-static --disable-shared --with-curses \
     PKG_CONFIG="pkg-config --static" CFLAGS="${BASE_CFLAGS}" \
@@ -260,7 +266,7 @@ cd "/build/readline-${READLINE_VERSION}"
 make -j"$(nproc)" SHLIB_LIBS="-lncurses -ltinfo"
 make install
 
-# ---------- 3.8 libpsl ----------
+# ---------- 3.9 libpsl ----------
 cd "/build/libpsl-${LIBPSL_VERSION}"
 ./configure --prefix=/usr/local --enable-static --disable-shared --disable-gtk-doc \
     --disable-runtime --disable-nls --disable-man --without-libintl-prefix --without-libiconv-prefix \
@@ -268,7 +274,7 @@ cd "/build/libpsl-${LIBPSL_VERSION}"
 make -j"$(nproc)"
 make install
 
-# ---------- 3.9 c-ares ----------
+# ---------- 3.10 c-ares ----------
 cd "/build/c-ares-${CARES_VERSION}"
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DCARES_STATIC=ON -DCARES_SHARED=OFF \
@@ -276,7 +282,7 @@ cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
 cmake --build build -j"$(nproc)"
 cmake --install build
 
-# ---------- 3.10 curl ----------
+# ---------- 3.11 curl ----------
 cd "/build/curl-curl-${CURL_VERSION//./_}"
 autoreconf -fi
 ./configure --prefix=/usr/local --enable-static --disable-shared --disable-debug \
@@ -291,7 +297,7 @@ autoreconf -fi
 make -j"$(nproc)"
 make install
 
-# ---------- 3.11 libpng ----------
+# ---------- 3.12 libpng ----------
 cd "/build/libpng-${LIBPNG_TAG#v}"
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DPNG_SHARED=OFF -DPNG_STATIC=ON -DPNG_TESTS=OFF -DPNG_TOOLS=OFF \
@@ -300,7 +306,7 @@ cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
 cmake --build build -j"$(nproc)"
 cmake --install build
 
-# ---------- 3.12 libgd ----------
+# ---------- 3.13 libgd ----------
 cd "/build/libgd-${GD_VERSION}"
 [ -f configure ] || autoreconf -fi
 ./configure --prefix=/usr/local --enable-static --enable-shared=no \
@@ -308,22 +314,6 @@ cd "/build/libgd-${GD_VERSION}"
     CFLAGS="${BASE_CFLAGS}" CXXFLAGS="${BASE_CFLAGS}"
 make -j"$(nproc)"
 make install
-
-# ---------- 3.13 Boost (headers + cmake config only) ----------
-cd /build/boost-src
-# Configure to generate cmake config files; no build needed
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF \
-    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
-# Install cmake config directories (generated during configure)
-BOOST_CMAKE_DIR=$(find build -name 'BoostConfig.cmake' -exec dirname {} \; -quit 2>/dev/null || true)
-if [ -n "$BOOST_CMAKE_DIR" ]; then
-    cp -r "$BOOST_CMAKE_DIR" /usr/local/lib/cmake/
-fi
-# Merge headers from all library subdirectories
-mkdir -p /usr/local/include/boost
-for dir in libs/*/include; do
-    [ -d "$dir/boost" ] && cp -r "$dir/boost"/* /usr/local/include/boost/ 2>/dev/null || true
-done
 
 # ---------- 3.14 Crypto++ ----------
 cd "/build/cryptopp-modern-${CRYPTOPP_VERSION}"
