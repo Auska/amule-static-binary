@@ -207,14 +207,7 @@ cd "musl-${MUSL_VERSION}"
 make -j"$(nproc)"
 make install
 
-# ---------- 3.2 Boost (cmake install) ----------
-cd /build/boost-src
-cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF \
-    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
-cmake --build build
-cmake --install build
-
-# ---------- 3.3 rpmalloc ----------
+# ---------- 3.2 rpmalloc ----------
 cd "/build/rpmalloc-${RPMALLOC_VERSION}"
 case "${ARCH}" in amd64*|x86_64*) RPMALLOC_ARCH="x86-64" ;; arm64|aarch64) RPMALLOC_ARCH="arm64" ;; *) RPMALLOC_ARCH="" ;; esac
 python3 configure.py --lto -c release --toolchain gcc ${RPMALLOC_ARCH:+-a "${RPMALLOC_ARCH}"}
@@ -222,7 +215,7 @@ ninja -j"$(nproc)" "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a"
 mkdir -p /usr/local/lib
 cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a" /usr/local/lib/
 
-# ---------- 3.4 zlib-ng ----------
+# ---------- 3.3 zlib-ng ----------
 cd "/build/zlib-ng-${ZLIB_NG_VERSION}"
 cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF \
     -DZLIB_COMPAT=ON -DWITH_AVX512=OFF -DWITH_AVX2=${ZLIB_AVX2} \
@@ -230,7 +223,7 @@ cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OF
 cmake --build build
 cmake --install build
 
-# ---------- 3.5 libressl ----------
+# ---------- 3.4 libressl ----------
 cd "/build/libressl-${LIBRESSL_VERSION}"
 cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DLIBRESSL_APPS=OFF -DLIBRESSL_TESTS=OFF \
@@ -238,13 +231,20 @@ cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OF
 cmake --build build
 cmake --install build
 
-# ---------- 3.6 nghttp2 ----------
+# ---------- 3.5 nghttp2 ----------
 cd "/build/nghttp2-${NGHTTP2_VERSION}"
 autoreconf -fi
 ./configure --enable-static --disable-shared --disable-debug --enable-lib-only \
     PKG_CONFIG="pkg-config --static" CFLAGS="${BASE_CFLAGS}" CXXFLAGS="${BASE_CFLAGS}"
 make -j"$(nproc)"
 make install
+
+# ---------- 3.6 Boost (cmake install) ----------
+cd /build/boost-src
+cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF \
+    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
+cmake --build build
+cmake --install build
 
 # ---------- 3.7 ncurses ----------
 cd "/build/${NCURSES_DIR}"
