@@ -91,7 +91,7 @@ echo "wxwidgets: ${WXWIDGETS_VERSION}"
 WX_VERSION_STRIP="${WXWIDGETS_VERSION#v}"
 
 READLINE_VERSION=$(curl -fsSL "https://ftp.gnu.org/gnu/readline/" | \
-    grep -oP 'readline-\d+\.\d+\.tar\.gz' | sed 's/readline-//;s/\.tar\.gz//' | sort -V | tail -1)
+    grep -o 'readline-[0-9]\+\.[0-9]\+\.tar\.gz' | sed 's/readline-//;s/\.tar\.gz//' | sort -V | tail -1)
 echo "readline: ${READLINE_VERSION}"
 
 LIBPNG_TAG=$(curl -fsS "https://api.github.com/repos/pnggroup/libpng/git/matching-refs/tags/v1.6" | \
