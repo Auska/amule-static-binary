@@ -58,7 +58,7 @@ BASE_CFLAGS="${ARCH_CFLAGS} -static -O3 -pipe"
 # Version pinning (static versions only — dynamic fetches below)
 # ---------------------------------------------------------------------------
 MUSL_VERSION="1.2.6"
-READLINE_VERSION="8.2"
+READLINE_VERSION="8.3"
 
 # ---------------------------------------------------------------------------
 # 1. System packages
@@ -280,6 +280,10 @@ cd "libpsl-${LIBPSL_VERSION}"
     --disable-shared \
     --disable-gtk-doc \
     --disable-runtime \
+    --disable-nls \
+    --disable-man \
+    --without-libintl-prefix \
+    --without-libiconv-prefix \
     PKG_CONFIG="pkg-config --static" \
     CFLAGS="${BASE_CFLAGS}"
 
@@ -495,7 +499,8 @@ mkdir -p build_wx && cd build_wx
     --disable-shared \
     --enable-static \
     --disable-gui \
-    --disable-debug \
+    --enable-monolithic \
+    --disable-debug_flag \
     --enable-optimise \
     --with-libcurl \
     --without-expat \
