@@ -208,11 +208,52 @@ cd "musl-${MUSL_VERSION}"
 make -j"$(nproc)"
 make install
 
-# ---------- 3.2 Boost (b2 install, headers + cmake config) ----------
+# ---------- 3.2 Boost (headers + cmake config) ----------
 cd /build/boost-src
-./bootstrap.sh
-./b2 headers
-./b2 install --prefix=/usr/local
+# Merge headers from all library subdirectories
+mkdir -p /usr/local/include/boost
+for hdir in libs/*/include/boost; do
+    [ -d "$hdir" ] && cp -r "$hdir"/* /usr/local/include/boost/ 2>/dev/null || true
+done
+# Generate cmake config for find_package(Boost CONFIG)
+BOOST_VER="${BOOST_VERSION#boost-}"
+BOOST_VER="${BOOST_VER%%-*}"
+BOOST_MAJ="${BOOST_VER%%.*}"
+BOOST_MIN="${BOOST_VER#*.}"
+BOOST_MIN="${BOOST_MIN%.*}"
+BOOST_PAT="${BOOST_VER##*.}"
+BOOST_CMAKE=$(printf "%d%02d%02d" "$BOOST_MAJ" "$BOOST_MIN" "$BOOST_PAT")
+mkdir -p /usr/local/lib/cmake
+cat > /usr/local/lib/cmake/BoostConfig.cmake << BOOST_CONFIG_EOF
+include(CMakeFindDependencyMacro)
+if(NOT TARGET Boost::headers)
+    add_library(Boost::headers INTERFACE IMPORTED)
+    set_target_properties(Boost::headers PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "/usr/local/include"
+    )
+endif()
+set(Boost_FOUND TRUE)
+set(Boost_VERSION ${BOOST_CMAKE})
+set(Boost_VERSION_STRING "${BOOST_VER}")
+foreach(_component asio system date_time regex filesystem thread)
+    if(NOT TARGET Boost::\${_component})
+        add_library(Boost::\${_component} INTERFACE IMPORTED)
+        target_link_libraries(Boost::\${_component} INTERFACE Boost::headers)
+    endif()
+endforeach()
+BOOST_CONFIG_EOF
+
+cat > /usr/local/lib/cmake/BoostConfigVersion.cmake << BOOST_VERSION_EOF
+set(PACKAGE_VERSION "${BOOST_VER}")
+if("\${PACKAGE_FIND_VERSION}" VERSION_GREATER "${BOOST_VER}")
+    set(PACKAGE_VERSION_COMPATIBLE FALSE)
+else()
+    set(PACKAGE_VERSION_COMPATIBLE TRUE)
+    if("\${PACKAGE_FIND_VERSION}" VERSION_EQUAL "${BOOST_VER}")
+        set(PACKAGE_VERSION_EXACT TRUE)
+    endif()
+endif()
+BOOST_VERSION_EOF
 
 # ---------- 3.3 rpmalloc ----------
 cd "/build/rpmalloc-${RPMALLOC_VERSION}"
