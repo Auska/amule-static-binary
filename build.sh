@@ -337,13 +337,8 @@ cd "/build/wxWidgets-${WX_VERSION_STRIP}"
 mkdir -p build_wx && cd build_wx
 ../configure --prefix=/usr/local --disable-shared \
     --disable-gui \
-    --enable-monolithic --disable-debug_flag --enable-optimise --with-libcurl \
-    --with-zlib=/usr/local \
-    --without-expat --without-libjpeg --without-libpng --without-libtiff --without-sdl \
-    --without-libmspack --without-gtk --without-motif --without-x11 \
-    --disable-sys-libs --disable-richtext --disable-html --disable-xrc --disable-aui \
-    --disable-propgrid --disable-ribbon --disable-stc \
-    --disable-mediactrl \
+    --enable-monolithic --disable-debug_flag --enable-optimise \
+    --with-libcurl --with-zlib=/usr/local \
     CFLAGS="${BASE_CFLAGS}" CXXFLAGS="${BASE_CFLAGS}" \
     CPPFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib -static" \
     PKG_CONFIG="pkg-config --static"
