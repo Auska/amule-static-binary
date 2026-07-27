@@ -75,13 +75,6 @@ echo "curl: ${CURL_VERSION}"
 BOOST_VERSION=$(curl -fsS "https://api.github.com/repos/boostorg/boost/releases?per_page=10" | \
     jq -r '[.[] | select(.tag_name | test("beta") | not) | .tag_name][0]')
 echo "boost: ${BOOST_VERSION}"
-BOOST_VERSION_NUM="${BOOST_VERSION#boost-}"
-BOOST_VERSION_NUM="${BOOST_VERSION_NUM%%-*}"
-BOOST_VERSION_MAJOR="${BOOST_VERSION_NUM%%.*}"
-BOOST_VERSION_MINOR="${BOOST_VERSION_NUM#*.}"
-BOOST_VERSION_MINOR="${BOOST_VERSION_MINOR%.*}"
-BOOST_VERSION_PATCH="${BOOST_VERSION_NUM##*.}"
-BOOST_VERSION_CMAKE=$(printf "%d%02d%02d" "${BOOST_VERSION_MAJOR}" "${BOOST_VERSION_MINOR}" "${BOOST_VERSION_PATCH}")
 
 CRYPTOPP_VERSION=$(curl -fsS "https://api.github.com/repos/cryptopp-modern/cryptopp-modern/tags?per_page=10" | jq -r '.[].name' | sort -V | tail -1)
 echo "cryptopp: ${CRYPTOPP_VERSION}"
