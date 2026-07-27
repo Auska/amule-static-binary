@@ -337,7 +337,6 @@ mkdir -p build_wx && cd build_wx
 make -j"$(nproc)"
 make install
 
-# wx-config wrapper (resolve real path once at build time)
 # ---------- 3.16 pupnp ----------
 cd "/build/pupnp-${PUPNP_VERSION}"
 cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
