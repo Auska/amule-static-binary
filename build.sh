@@ -369,8 +369,9 @@ echo "Building Boost ${BOOST_VERSION}"
 
 cd /build
 curl -fsSLO "https://github.com/boostorg/boost/archive/refs/tags/${BOOST_VERSION}.tar.gz"
-tar xf "${BOOST_VERSION}.tar.gz"
-cd "${BOOST_VERSION}"
+mkdir -p boost-src
+cd boost-src
+tar xf "/build/${BOOST_VERSION}.tar.gz" --strip-components=1
 
 # For aMule's use case (boost::asio, header-only boost::system with
 # BOOST_ERROR_CODE_HEADER_ONLY), we only need the headers. No compiled
