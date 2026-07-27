@@ -336,8 +336,16 @@ make install
 
 # ---------- 3.14 Crypto++ ----------
 cd "/build/cryptopp-modern-${CRYPTOPP_VERSION}"
+# CPU-specific feature flags: AVX2 based on arch, AVX512 always off
+if [ "${ZLIB_AVX2}" = "OFF" ]; then
+    CRYPTO_DISABLE_AVX2="ON"
+else
+    CRYPTO_DISABLE_AVX2="OFF"
+fi
 cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DCRYPTOPP_BUILD_TESTING=OFF -DCRYPTOPP_INSTALL=ON \
+    -DCRYPTOPP_DISABLE_AVX2=${CRYPTO_DISABLE_AVX2} \
+    -DCRYPTOPP_DISABLE_AVX512=ON \
     -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}" -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
     -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
 cmake --build build
