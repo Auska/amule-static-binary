@@ -132,7 +132,6 @@ export CPATH="/usr/local/include${CPATH:+:$CPATH}"
 RPMALLOC_VERSION=$(curl -fsS "https://api.github.com/repos/mjansson/rpmalloc/releases/latest" | jq -r '.tag_name')
 echo "Latest rpmalloc version: ${RPMALLOC_VERSION}"
 
-mkdir -p /build
 cd /build
 curl -fsSLO "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_VERSION}.tar.gz"
 tar xf "${RPMALLOC_VERSION}.tar.gz"
@@ -157,7 +156,6 @@ cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a" /usr/local/lib/
 ZLIB_NG_VERSION=$(curl -fsS "https://api.github.com/repos/zlib-ng/zlib-ng/releases/latest" | jq -r '.tag_name')
 echo "Latest zlib-ng version: ${ZLIB_NG_VERSION}"
 
-mkdir -p /build
 cd /build
 curl -fsSLO "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/${ZLIB_NG_VERSION}.tar.gz"
 tar xf "${ZLIB_NG_VERSION}.tar.gz"
@@ -526,25 +524,18 @@ make -j"$(nproc)"
 make install
 
 # Fix wx-config to output static link flags
-if [ -f /usr/local/lib/wx/config/gtk3-unicode-static-3.2 ]; then
-    WX_CONFIG="/usr/local/lib/wx/config/gtk3-unicode-static-3.2"
-elif [ -f /usr/local/lib/wx/config/base-unicode-static-3.2 ]; then
-    WX_CONFIG="/usr/local/lib/wx/config/base-unicode-static-3.2"
+# With --disable-gui the config is always base-unicode-static-*
+if [ -f /usr/local/lib/wx/config/base-unicode-static-3.2 ]; then
+    WX_CONFIG_REAL="/usr/local/lib/wx/config/base-unicode-static-3.2"
 else
-    WX_CONFIG=$(find /usr/local -name "wx-config" -type f 2>/dev/null | head -1)
+    WX_CONFIG_REAL=$(find /usr/local/lib/wx/config -name '*-unicode-static-*' -type f 2>/dev/null | head -1)
 fi
+echo "wx-config real: ${WX_CONFIG_REAL}"
 
-echo "wx-config: ${WX_CONFIG}"
-
-# Override the system wx-config to ensure static linking
-cat > /usr/local/bin/wx-config << 'WXCONFIG_SCRIPT'
+# Write a simple static wx-config wrapper
+cat > /usr/local/bin/wx-config << WXCONFIG_SCRIPT
 #!/bin/sh
-# Wrapper to ensure static linking flags
-WX_CONFIG_REAL=$(find /usr/local/lib/wx/config -name '*-unicode-static-*' -type f 2>/dev/null | head -1)
-if [ -z "$WX_CONFIG_REAL" ]; then
-    WX_CONFIG_REAL=$(find /usr/local -name "wx-config" -type f ! -name "wx-config-wrapper" 2>/dev/null | head -1)
-fi
-exec "$WX_CONFIG_REAL" --static "$@"
+exec "${WX_CONFIG_REAL}" --static "\$@"
 WXCONFIG_SCRIPT
 chmod +x /usr/local/bin/wx-config
 
@@ -637,17 +628,18 @@ cmake --build build -j"$(nproc)"
 cmake --install build
 
 # Install pkg-config file for gdlib so aMule can find it
-cat > /usr/local/lib/pkgconfig/gdlib.pc << 'GD_PC_EOF'
+GD_LIB_VERSION="${GD_VERSION#gd-}"
+cat > /usr/local/lib/pkgconfig/gdlib.pc << GD_PC_EOF
 prefix=/usr/local
-exec_prefix=${prefix}
-libdir=${exec_prefix}/lib
-includedir=${prefix}/include
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
 
 Name: gdlib
 Description: GD graphics library
-Version: ${GD_VERSION#gd-}
-Libs: -L${libdir} -lgd -lpng -lz
-Cflags: -I${includedir}
+Version: ${GD_LIB_VERSION}
+Libs: -L\${libdir} -lgd -lpng -lz
+Cflags: -I\${includedir}
 GD_PC_EOF
 
 # ---------------------------------------------------------------------------
@@ -734,6 +726,8 @@ cmake .. \
 make -j"$(nproc)"
 
 # ---------------------------------------------------------------------------
+# 19. Install binaries and package output
+# ---------------------------------------------------------------------------
 make install
 
 OUTPUT_DIR="/output"
@@ -744,9 +738,9 @@ mkdir -p "${BIN_DIR}"
 
 # Copy installed aMule binaries
 for bin in amuled amulecmd amuleweb; do
-    found=$(find /usr/local/bin -name "${bin}" -type f 2>/dev/null | head -1)
-    if [ -n "$found" ]; then
-        cp "$found" "${BIN_DIR}/${bin}-linux-${ARCH}${SUFFIX}"
+    src="/usr/local/bin/${bin}"
+    if [ -f "$src" ]; then
+        cp "$src" "${BIN_DIR}/${bin}-linux-${ARCH}${SUFFIX}"
         strip "${BIN_DIR}/${bin}-linux-${ARCH}${SUFFIX}"
     fi
 done
