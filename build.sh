@@ -308,17 +308,12 @@ cmake --install build
 
 # ---------- 3.12 libgd ----------
 cd "/build/libgd-${GD_VERSION}"
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
-    -DENABLE_PNG=ON -DENABLE_JPEG=OFF -DENABLE_TIFF=OFF -DENABLE_WEBP=OFF \
-    -DENABLE_FREETYPE=OFF -DENABLE_FONTCONFIG=OFF -DENABLE_XPM=OFF -DENABLE_ICONV=OFF \
-    -DENABLE_LIQ=OFF -DENABLE_RAQM=OFF -DENABLE_HEIF=OFF -DENABLE_AVIF=OFF \
-    -DENABLE_GD_FORMATS=OFF -DBUILD_TEST=OFF -DENABLE_CPP=OFF \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
-cmake --build build -j"$(nproc)" || true
-# Library builds first; utility programs link against gd_static which
-# conflicts with gd in static-only mode — manually install just the lib
-find build -name 'libgd.a' -exec cp {} /usr/local/lib/ \;
-cp src/gd.h /usr/local/include/ 2>/dev/null || true
+[ -f configure ] || autoreconf -fi
+./configure --prefix=/usr/local --enable-static --enable-shared=no \
+    PKG_CONFIG="pkg-config --static" \
+    CFLAGS="${BASE_CFLAGS}" CXXFLAGS="${BASE_CFLAGS}"
+make -j"$(nproc)"
+make install
 cmake --install build
 
 cat > /usr/local/lib/pkgconfig/gdlib.pc << GD_PC_EOF
