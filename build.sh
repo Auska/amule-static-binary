@@ -314,7 +314,7 @@ cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DENABLE_LIQ=OFF -DENABLE_RAQM=OFF -DENABLE_HEIF=OFF -DENABLE_AVIF=OFF \
     -DENABLE_GD_FORMATS=OFF -DBUILD_TEST=OFF -DENABLE_CPP=OFF \
     -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
-cmake --build build -j"$(nproc)"
+cmake --build build -j"$(nproc)" --target gd
 cmake --install build
 
 cat > /usr/local/lib/pkgconfig/gdlib.pc << GD_PC_EOF
