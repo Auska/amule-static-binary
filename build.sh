@@ -309,12 +309,19 @@ cd "/build/libgd-${GD_VERSION}"
 make -j"$(nproc)"
 make install
 
-# ---------- 3.13 Boost (cmake install) ----------
+# ---------- 3.13 Boost (headers + cmake config only) ----------
 cd /build/boost-src
+# Configure to generate cmake config files; no build needed
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF \
     -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
-cmake --build build -j"$(nproc)"
-cmake --install build
+# Install cmake config directories (generated during configure)
+find build -type d -name 'boost_*' -exec cp -r {} /usr/local/lib/cmake/ \; 2>/dev/null || true
+find build -type d -name 'Boost-*' -exec cp -r {} /usr/local/lib/cmake/ \; 2>/dev/null || true
+# Merge headers from all library subdirectories
+mkdir -p /usr/local/include/boost
+for dir in libs/*/include; do
+    [ -d "$dir/boost" ] && cp -r "$dir/boost"/* /usr/local/include/boost/ 2>/dev/null || true
+done
 
 # ---------- 3.14 Crypto++ ----------
 cd "/build/cryptopp-modern-${CRYPTOPP_VERSION}"
