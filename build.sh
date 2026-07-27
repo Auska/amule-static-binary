@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # build.sh
 #
 # Compiles fully-static aMule binaries inside an Alpine Linux container.
@@ -25,12 +25,30 @@ fi
 
 # Architecture-specific compiler flags
 case "${ARCH}" in
-    amd64|x86_64)           ARCH_CFLAGS="-march=x86-64-v2"; ZLIB_AVX2="OFF" ;;
-    amd64-gracemont|x86_64-gracemont) ARCH_CFLAGS="-march=gracemont -mtune=gracemont"; ZLIB_AVX2="ON" ;;
-    amd64-tremont|x86_64-tremont) ARCH_CFLAGS="-march=tremont -mtune=tremont"; ZLIB_AVX2="OFF" ;;
-    amd64-v3|x86_64-v3)     ARCH_CFLAGS="-march=x86-64-v3"; ZLIB_AVX2="ON" ;;
-    arm64|aarch64)          ARCH_CFLAGS="-march=armv8-a"; ZLIB_AVX2="OFF" ;;
-    *)                      ARCH_CFLAGS=""; ZLIB_AVX2="OFF" ;;
+    amd64 | x86_64)
+        ARCH_CFLAGS="-march=x86-64-v2"
+        ZLIB_AVX2="OFF"
+        ;;
+    amd64-gracemont | x86_64-gracemont)
+        ARCH_CFLAGS="-march=gracemont -mtune=gracemont"
+        ZLIB_AVX2="ON"
+        ;;
+    amd64-tremont | x86_64-tremont)
+        ARCH_CFLAGS="-march=tremont -mtune=tremont"
+        ZLIB_AVX2="OFF"
+        ;;
+    amd64-v3 | x86_64-v3)
+        ARCH_CFLAGS="-march=x86-64-v3"
+        ZLIB_AVX2="ON"
+        ;;
+    arm64 | aarch64)
+        ARCH_CFLAGS="-march=armv8-a"
+        ZLIB_AVX2="OFF"
+        ;;
+    *)
+        ARCH_CFLAGS=""
+        ZLIB_AVX2="OFF"
+        ;;
 esac
 BASE_CFLAGS="${ARCH_CFLAGS} -static -O3 -pipe"
 
@@ -72,27 +90,27 @@ CURL_VERSION=$(echo "$CURL_TAG" | sed 's/curl-//' | tr '_' '.')
 echo "curl: ${CURL_VERSION}"
 
 # Boost: use source archive with standard boost/ header layout
-BOOST_VERSION=$(curl -fsS "https://api.github.com/repos/boostorg/boost/releases?per_page=10" | \
+BOOST_VERSION=$(curl -fsS "https://api.github.com/repos/boostorg/boost/releases?per_page=10" |
     jq -r '[.[] | select(.tag_name | test("beta") | not) | .tag_name][0]')
 echo "boost: ${BOOST_VERSION}"
 
 CRYPTOPP_VERSION=$(curl -fsS "https://api.github.com/repos/cryptopp-modern/cryptopp-modern/tags?per_page=10" | jq -r '.[].name' | sort -V | tail -1)
 echo "cryptopp: ${CRYPTOPP_VERSION}"
 
-WXWIDGETS_VERSION=$(curl -fsS "https://api.github.com/repos/wxWidgets/wxWidgets/releases" | \
+WXWIDGETS_VERSION=$(curl -fsS "https://api.github.com/repos/wxWidgets/wxWidgets/releases" |
     jq -r '[.[] | select(.tag_name | startswith("v3.2")) | .tag_name][0]')
 echo "wxwidgets: ${WXWIDGETS_VERSION}"
 WX_VERSION_STRIP="${WXWIDGETS_VERSION#v}"
 
-READLINE_VERSION=$(curl -fsSL "https://ftp.gnu.org/gnu/readline/" | \
+READLINE_VERSION=$(curl -fsSL "https://ftp.gnu.org/gnu/readline/" |
     grep -o 'readline-[0-9]\+\.[0-9]\+\.tar\.gz' | sed 's/readline-//;s/\.tar\.gz//' | sort -V | tail -1)
 echo "readline: ${READLINE_VERSION}"
 
-LIBPNG_TAG=$(curl -fsS "https://api.github.com/repos/pnggroup/libpng/git/matching-refs/tags/v1.6" | \
+LIBPNG_TAG=$(curl -fsS "https://api.github.com/repos/pnggroup/libpng/git/matching-refs/tags/v1.6" |
     jq -r '[.[].ref | split("/")[2] | select(test("rc|beta|alpha") | not)] | .[]' | sort -V | tail -1)
 echo "libpng: ${LIBPNG_TAG}"
 
-GD_VERSION=$(curl -fsS "https://api.github.com/repos/libgd/libgd/tags?per_page=20" | \
+GD_VERSION=$(curl -fsS "https://api.github.com/repos/libgd/libgd/tags?per_page=20" |
     jq -r '[.[].name | select(test("^gd-"))] | .[]' | sort -V | tail -1)
 echo "libgd: ${GD_VERSION}"
 
@@ -209,7 +227,7 @@ make install
 
 # ---------- 3.2 rpmalloc ----------
 cd "/build/rpmalloc-${RPMALLOC_VERSION}"
-case "${ARCH}" in amd64*|x86_64*) RPMALLOC_ARCH="x86-64" ;; arm64|aarch64) RPMALLOC_ARCH="arm64" ;; *) RPMALLOC_ARCH="" ;; esac
+case "${ARCH}" in amd64* | x86_64*) RPMALLOC_ARCH="x86-64" ;; arm64 | aarch64) RPMALLOC_ARCH="arm64" ;; *) RPMALLOC_ARCH="" ;; esac
 python3 configure.py --lto -c release --toolchain gcc ${RPMALLOC_ARCH:+-a "${RPMALLOC_ARCH}"}
 ninja -j"$(nproc)" "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a"
 mkdir -p /usr/local/lib
