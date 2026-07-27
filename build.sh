@@ -338,7 +338,7 @@ mkdir -p build_wx && cd build_wx
 ../configure --prefix=/usr/local --disable-shared \
     --disable-gui \
     --enable-monolithic --disable-debug_flag --enable-optimise \
-    --with-libcurl --with-zlib=/usr/local \
+    --with-libcurl --with-zlib \
     CFLAGS="${BASE_CFLAGS}" CXXFLAGS="${BASE_CFLAGS}" \
     CPPFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib -static" \
     PKG_CONFIG="pkg-config --static"
