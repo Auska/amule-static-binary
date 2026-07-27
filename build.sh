@@ -225,19 +225,19 @@ cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a" /usr/local/lib/
 
 # ---------- 3.4 zlib-ng ----------
 cd "/build/zlib-ng-${ZLIB_NG_VERSION}"
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF \
+cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF \
     -DZLIB_COMPAT=ON -DWITH_AVX512=OFF -DWITH_AVX2=${ZLIB_AVX2} \
     -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
-cmake --build build -j"$(nproc)"
+cmake --build build
 cmake --install build
 rm -f /usr/lib/pkgconfig/zlib.pc 2>/dev/null || true
 
 # ---------- 3.5 libressl ----------
 cd "/build/libressl-${LIBRESSL_VERSION}"
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
+cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DLIBRESSL_APPS=OFF -DLIBRESSL_TESTS=OFF \
     -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
-cmake --build build -j"$(nproc)"
+cmake --build build
 cmake --install build
 
 # ---------- 3.6 nghttp2 ----------
@@ -277,10 +277,10 @@ make install
 
 # ---------- 3.10 c-ares ----------
 cd "/build/c-ares-${CARES_VERSION}"
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
+cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DCARES_STATIC=ON -DCARES_SHARED=OFF \
     -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_INSTALL_LIBDIR=lib
-cmake --build build -j"$(nproc)"
+cmake --build build
 cmake --install build
 
 # ---------- 3.11 curl ----------
@@ -300,11 +300,11 @@ make install
 
 # ---------- 3.12 libpng ----------
 cd "/build/libpng-${LIBPNG_TAG#v}"
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
+cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DPNG_SHARED=OFF -DPNG_STATIC=ON -DPNG_TESTS=OFF -DPNG_TOOLS=OFF \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
-cmake --build build -j"$(nproc)"
+cmake --build build
 cmake --install build
 
 # ---------- 3.13 libgd ----------
@@ -318,11 +318,11 @@ make install
 
 # ---------- 3.14 Crypto++ ----------
 cd "/build/cryptopp-modern-${CRYPTOPP_VERSION}"
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
+cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DCRYPTOPP_BUILD_TESTING=OFF -DCRYPTOPP_INSTALL=ON \
     -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}" -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
     -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
-cmake --build build -j"$(nproc)"
+cmake --build build
 cmake --install build
 
 # ---------- 3.15 wxWidgets ----------
@@ -352,12 +352,12 @@ chmod +x /usr/local/bin/wx-config
 
 # ---------- 3.16 pupnp ----------
 cd "/build/pupnp-${PUPNP_VERSION}"
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
+cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DUPNP_BUILD_SHARED=OFF -DUPNP_BUILD_STATIC=ON -DUPNP_BUILD_SAMPLES=OFF \
     -DUPNP_ENABLE_TESTING=OFF -DUPNP_ENABLE_OPEN_SSL=OFF -DUPNP_ENABLE_IPV6=ON \
     -DUPNP_ENABLE_DEBUG=OFF \
     -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
-cmake --build build -j"$(nproc)"
+cmake --build build
 cmake --install build
 
 # ---------- 3.17 aMule ----------
@@ -371,7 +371,7 @@ else
 fi
 
 mkdir -p build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBoost_DIR=${DEPS_PREFIX} \
+cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBoost_DIR=${DEPS_PREFIX} \
     -DBUILD_WEBSERVER=ON -DBUILD_CAS=ON -DENABLE_NLS=OFF -DBUILD_MONOLITHIC=OFF \
     -DBUILD_REMOTEGUI=OFF -DBUILD_DAEMON=ON -DBUILD_WXCAS=OFF -DBUILD_ALCC=ON \
     -DBUILD_AMULECMD=ON -DBUILD_ALC=OFF -DBUILD_FILEVIEW=ON \
