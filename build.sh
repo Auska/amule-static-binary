@@ -314,8 +314,8 @@ cd "/build/libgd-${GD_VERSION}"
     CFLAGS="${BASE_CFLAGS}" CXXFLAGS="${BASE_CFLAGS}"
 make -j"$(nproc)"
 make install
-cmake --install build
 
+# Overwrite gdlib.pc with static-link flags including transitive deps
 cat > /usr/local/lib/pkgconfig/gdlib.pc << GD_PC_EOF
 prefix=/usr/local
 exec_prefix=\${prefix}
