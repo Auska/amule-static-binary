@@ -315,8 +315,10 @@ cd /build/boost-src
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF \
     -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
 # Install cmake config directories (generated during configure)
-find build -type d -name 'boost_*' -exec cp -r {} /usr/local/lib/cmake/ \; 2>/dev/null || true
-find build -type d -name 'Boost-*' -exec cp -r {} /usr/local/lib/cmake/ \; 2>/dev/null || true
+BOOST_CMAKE_DIR=$(find build -name 'BoostConfig.cmake' -exec dirname {} \; -quit 2>/dev/null || true)
+if [ -n "$BOOST_CMAKE_DIR" ]; then
+    cp -r "$BOOST_CMAKE_DIR" /usr/local/lib/cmake/
+fi
 # Merge headers from all library subdirectories
 mkdir -p /usr/local/include/boost
 for dir in libs/*/include; do
@@ -383,6 +385,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBoost_DIR=${DEPS_PREFI
     -DBUILD_REMOTEGUI=OFF -DBUILD_DAEMON=ON -DBUILD_WXCAS=OFF -DBUILD_ALCC=ON \
     -DBUILD_AMULECMD=ON -DBUILD_ALC=OFF -DBUILD_FILEVIEW=ON \
     -DCMAKE_INSTALL_PREFIX=${AMULE_PREFIX} -DENABLE_IP2COUNTRY=OFF -DENABLE_UPNP=ON \
+    -DCMAKE_LIBRARY_PATH=${DEPS_PREFIX}/lib \
     -DZLIB_INCLUDE_DIR=${DEPS_PREFIX}/include -DZLIB_LIBRARY=${DEPS_PREFIX}/lib/libz.a \
     -DCMAKE_CXX_FLAGS="${BASE_CFLAGS} -I${DEPS_PREFIX}/include" \
     -DCMAKE_C_FLAGS="${BASE_CFLAGS} -I${DEPS_PREFIX}/include" \
