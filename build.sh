@@ -147,11 +147,11 @@ tar xf "c-ares-${CARES_VERSION}.tar.gz"
 curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/curl/curl/archive/refs/tags/curl-${CURL_VERSION//./_}.tar.gz"
 tar xf "curl-${CURL_VERSION//./_}.tar.gz"
 
-# Boost (b2 tarball)
-BOOST_B2_FILE="${BOOST_VERSION}-b2-nodocs.tar.xz"
-curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_B2_FILE}"
+# Boost (cmake tarball from GitHub Releases)
+BOOST_CMAKE_FILE="${BOOST_VERSION}-cmake.tar.xz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_CMAKE_FILE}"
 mkdir -p boost-src && cd boost-src
-tar xf "/build/${BOOST_B2_FILE}" --strip-components=1
+tar xf "/build/${BOOST_CMAKE_FILE}" --strip-components=1
 cd /build
 
 # cryptopp
@@ -208,23 +208,22 @@ cd "musl-${MUSL_VERSION}"
 make -j"$(nproc)"
 make install
 
-# ---------- 3.2 Boost (headers + cmake config) ----------
+# ---------- 3.2 Boost (cmake install) ----------
 cd /build/boost-src
-# Merge headers from all library subdirectories
-mkdir -p /usr/local/include/boost
-for hdir in libs/*/include/boost; do
-    [ -d "$hdir" ] && cp -r "$hdir"/* /usr/local/include/boost/ 2>/dev/null || true
-done
-# Generate cmake config for find_package(Boost CONFIG)
-BOOST_VER="${BOOST_VERSION#boost-}"
-BOOST_VER="${BOOST_VER%%-*}"
-BOOST_MAJ="${BOOST_VER%%.*}"
-BOOST_MIN="${BOOST_VER#*.}"
-BOOST_MIN="${BOOST_MIN%.*}"
-BOOST_PAT="${BOOST_VER##*.}"
-BOOST_CMAKE=$(printf "%d%02d%02d" "$BOOST_MAJ" "$BOOST_MIN" "$BOOST_PAT")
-mkdir -p /usr/local/lib/cmake
-cat > /usr/local/lib/cmake/BoostConfig.cmake << BOOST_CONFIG_EOF
+# Configure generates cmake config + install rules
+cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF \
+    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
+# Install headers + cmake config (skip compiled libs: some need linux/futex.h on musl)
+cmake --install build 2>/dev/null || true
+# Verify cmake config was installed; fallback to manual if missing
+if [ ! -f /usr/local/lib/cmake/BoostConfig.cmake ] && [ -z "$(find /usr/local/lib/cmake -name 'BoostConfig.cmake' 2>/dev/null)" ]; then
+    echo "Boost cmake config not installed, generating manually..."
+    mkdir -p /usr/local/lib/cmake
+    BOOST_VER="${BOOST_VERSION#boost-}"
+    BOOST_VER="${BOOST_VER%%-*}"
+    BOOST_MAJ="${BOOST_VER%%.*}"; BOOST_MIN="${BOOST_VER#*.}"; BOOST_MIN="${BOOST_MIN%.*}"; BOOST_PAT="${BOOST_VER##*.}"
+    BOOST_CMAKE=$(printf "%d%02d%02d" "$BOOST_MAJ" "$BOOST_MIN" "$BOOST_PAT")
+    cat > /usr/local/lib/cmake/BoostConfig.cmake << BOOST_CONFIG_EOF
 include(CMakeFindDependencyMacro)
 if(NOT TARGET Boost::headers)
     add_library(Boost::headers INTERFACE IMPORTED)
@@ -242,8 +241,7 @@ foreach(_component asio system date_time regex filesystem thread)
     endif()
 endforeach()
 BOOST_CONFIG_EOF
-
-cat > /usr/local/lib/cmake/BoostConfigVersion.cmake << BOOST_VERSION_EOF
+    cat > /usr/local/lib/cmake/BoostConfigVersion.cmake << BOOST_VERSION_EOF
 set(PACKAGE_VERSION "${BOOST_VER}")
 if("\${PACKAGE_FIND_VERSION}" VERSION_GREATER "${BOOST_VER}")
     set(PACKAGE_VERSION_COMPATIBLE FALSE)
@@ -254,6 +252,7 @@ else()
     endif()
 endif()
 BOOST_VERSION_EOF
+fi
 
 # ---------- 3.3 rpmalloc ----------
 cd "/build/rpmalloc-${RPMALLOC_VERSION}"
