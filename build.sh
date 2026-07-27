@@ -315,8 +315,10 @@ cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
     -DENABLE_GD_FORMATS=OFF -DBUILD_TEST=OFF -DENABLE_CPP=OFF \
     -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
 cmake --build build -j"$(nproc)" || true
-# Only the library is needed; utility programs (pngtogd, etc.) may fail
-# to link in a static-only build — ignore those errors
+# Library builds first; utility programs link against gd_static which
+# conflicts with gd in static-only mode — manually install just the lib
+find build -name 'libgd.a' -exec cp {} /usr/local/lib/ \;
+cp src/gd.h /usr/local/include/ 2>/dev/null || true
 cmake --install build
 
 cat > /usr/local/lib/pkgconfig/gdlib.pc << GD_PC_EOF
