@@ -246,7 +246,35 @@ make -j"$(nproc)"
 make install.libs install.includes
 
 # ---------------------------------------------------------------------------
-# 8. Build c-ares (async DNS resolver, needed by curl)
+# 8. Build libpsl (Public Suffix List library, needed by curl)
+# ---------------------------------------------------------------------------
+echo "Building libpsl"
+
+cd /build
+LIBPSL_VERSION="0.23.0"
+curl -fsSLO "https://github.com/rockdaboot/libpsl/archive/refs/tags/${LIBPSL_VERSION}.tar.gz"
+tar xf "${LIBPSL_VERSION}.tar.gz"
+cd "libpsl-${LIBPSL_VERSION}"
+
+# libpsl uses autotools; needs a kickstart
+if [ ! -f configure ]; then
+    autoreconf -fi
+fi
+
+./configure \
+    --prefix=/usr/local \
+    --enable-static \
+    --disable-shared \
+    --disable-gtk-doc \
+    --disable-runtime \
+    PKG_CONFIG="pkg-config --static" \
+    CFLAGS="${BASE_CFLAGS}"
+
+make -j"$(nproc)"
+make install
+
+# ---------------------------------------------------------------------------
+# 9. Build c-ares (async DNS resolver, needed by curl)
 # ---------------------------------------------------------------------------
 CARES_VERSION=$(curl -fsS "https://api.github.com/repos/c-ares/c-ares/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
 echo "Latest c-ares version: ${CARES_VERSION}"
@@ -268,7 +296,7 @@ cmake --build build -j"$(nproc)"
 cmake --install build
 
 # ---------------------------------------------------------------------------
-# 9. Build curl
+# 10. Build curl
 # ---------------------------------------------------------------------------
 CURL_TAG=$(curl -fsS "https://api.github.com/repos/curl/curl/releases/latest" | jq -r '.tag_name')
 CURL_VERSION=$(echo "$CURL_TAG" | sed 's/curl-//' | tr '_' '.')
@@ -321,7 +349,7 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 10. Build Boost (headers only)
+# 11. Build Boost (headers only)
 # ---------------------------------------------------------------------------
 echo "Building Boost ${BOOST_VERSION}"
 
@@ -385,7 +413,7 @@ endif()
 BOOST_VERSION_EOF
 
 # ---------------------------------------------------------------------------
-# 11. Build Crypto++
+# 12. Build Crypto++
 # ---------------------------------------------------------------------------
 echo "Building Crypto++ ${CRYPTOPP_VERSION}"
 
@@ -412,7 +440,7 @@ cmake --build build -j"$(nproc)"
 cmake --install build
 
 # ---------------------------------------------------------------------------
-# 12. Build wxWidgets (wxBase + wxNet only, no GUI)
+# 13. Build wxWidgets (wxBase + wxNet only, no GUI)
 # ---------------------------------------------------------------------------
 echo "Building wxWidgets ${WXWIDGETS_VERSION}"
 
@@ -497,7 +525,7 @@ WXCONFIG_SCRIPT
 chmod +x /usr/local/bin/wx-config
 
 # ---------------------------------------------------------------------------
-# 13. Build readline (for amulecmd)
+# 14. Build readline (for amulecmd)
 # ---------------------------------------------------------------------------
 echo "Building readline ${READLINE_VERSION}"
 
@@ -520,7 +548,7 @@ make -j"$(nproc)" SHLIB_LIBS="-lncurses -ltinfo"
 make install
 
 # ---------------------------------------------------------------------------
-# 14. Build libpng (needed by libgd for CAS)
+# 15. Build libpng (needed by libgd for CAS)
 # ---------------------------------------------------------------------------
 echo "Building libpng"
 
@@ -545,7 +573,7 @@ cmake --build build -j"$(nproc)"
 cmake --install build
 
 # ---------------------------------------------------------------------------
-# 15. Build libgd (for C aMule Statistics)
+# 16. Build libgd (for C aMule Statistics)
 # ---------------------------------------------------------------------------
 echo "Building libgd"
 
@@ -595,7 +623,7 @@ Cflags: -I${includedir}
 GD_PC_EOF
 
 # ---------------------------------------------------------------------------
-# 16. Build pupnp (for UPnP support)
+# 17. Build pupnp (for UPnP support)
 # ---------------------------------------------------------------------------
 echo "Building pupnp"
 
@@ -623,7 +651,7 @@ cmake --build build -j"$(nproc)"
 cmake --install build
 
 # ---------------------------------------------------------------------------
-# 17. Build aMule
+# 18. Build aMule
 # ---------------------------------------------------------------------------
 echo "Building aMule"
 cd /build
@@ -704,7 +732,7 @@ cmake .. \
 make -j"$(nproc)"
 
 # ---------------------------------------------------------------------------
-# 18. Install binaries and package output
+# 19. Install binaries and package output
 # ---------------------------------------------------------------------------
 make install
 
