@@ -37,7 +37,7 @@ BASE_CFLAGS="${ARCH_CFLAGS} -static -O3 -pipe"
 # System packages
 apk add --no-cache \
     autoconf autoconf-archive automake build-base cmake cppunit-dev \
-    curl gawk gettext-dev git jq libtool ninja pkgconf python3 bison flex
+    curl gawk gettext-dev git jq libtool linux-headers ninja pkgconf python3 bison flex
 
 export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
 export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
