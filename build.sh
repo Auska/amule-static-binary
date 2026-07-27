@@ -315,19 +315,6 @@ cd "/build/libgd-${GD_VERSION}"
 make -j"$(nproc)"
 make install
 
-# Overwrite gdlib.pc with static-link flags including transitive deps
-cat > /usr/local/lib/pkgconfig/gdlib.pc << GD_PC_EOF
-prefix=/usr/local
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
-includedir=\${prefix}/include
-Name: gdlib
-Description: GD graphics library
-Version: ${GD_LIB_VERSION}
-Libs: -L\${libdir} -lgd -lpng -lz
-Cflags: -I\${includedir}
-GD_PC_EOF
-
 # ---------- 3.13 Boost (headers only) ----------
 cd /build/boost-src
 cp -r boost /usr/local/include/boost
