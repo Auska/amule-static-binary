@@ -165,8 +165,7 @@ jobs:
 
       - name: 验证二进制文件是静态链接的
         run: |
-          SUFFIX="-daily-${{ needs.check-version.outputs.build_id }}"
-          for FILE in output/bin/*-linux-${{ matrix.arch }}${SUFFIX}; do
+          for FILE in output/amule/bin/amuled output/amule/bin/amulecmd output/amule/bin/amuleweb; do
             if [ -f "$FILE" ]; then
               file "$FILE"
               if readelf -l "$FILE" | grep -q 'INTERP'; then
@@ -210,9 +209,7 @@ jobs:
           AMULE_SHA: ${{ needs.check-version.outputs.amule_sha }}
           BUILD_ID: ${{ needs.check-version.outputs.build_id }}
         run: |
-          find . -maxdepth 1 -type f -name '*-linux-*' -print0 \
-            | sort -z \
-            | xargs -0 sha256sum > SHA256SUMS
+          sha256sum amule-linux-*.tar.gz > SHA256SUMS
 
           {
             echo "amule_sha=${AMULE_SHA}"

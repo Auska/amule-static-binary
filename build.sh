@@ -690,14 +690,15 @@ else
     git checkout "${AMULE_SHA}"
 fi
 
-PREFIX="/usr/local"
+AMULE_PREFIX="/opt/amule"
+DEPS_PREFIX="/usr/local"
 
 mkdir -p build && cd build
 
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_TESTING=OFF \
-    -DBoost_DIR=${PREFIX} \
+    -DBoost_DIR=${DEPS_PREFIX} \
     -DBUILD_WEBSERVER=ON \
     -DBUILD_CAS=ON \
     -DENABLE_NLS=OFF \
@@ -709,51 +710,49 @@ cmake .. \
     -DBUILD_AMULECMD=ON \
     -DBUILD_ALC=OFF \
     -DBUILD_FILEVIEW=ON \
-    -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+    -DCMAKE_INSTALL_PREFIX=${AMULE_PREFIX} \
     -DENABLE_IP2COUNTRY=OFF \
     -DENABLE_UPNP=ON \
-    -DZLIB_INCLUDE_DIR=${PREFIX}/include \
-    -DZLIB_LIBRARY=${PREFIX}/lib/libz.a \
-    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS} -I${PREFIX}/include" \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS} -I${PREFIX}/include" \
-    -DCMAKE_EXE_LINKER_FLAGS="-static -L${PREFIX}/lib -lrpmalloc" \
+    -DZLIB_INCLUDE_DIR=${DEPS_PREFIX}/include \
+    -DZLIB_LIBRARY=${DEPS_PREFIX}/lib/libz.a \
+    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS} -I${DEPS_PREFIX}/include" \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS} -I${DEPS_PREFIX}/include" \
+    -DCMAKE_EXE_LINKER_FLAGS="-static -L${DEPS_PREFIX}/lib -lrpmalloc" \
     -DCMAKE_MODULE_LINKER_FLAGS="-static" \
     -DPKG_CONFIG_EXECUTABLE="pkg-config --static" \
     -DCRYPTOPP_INCLUDE_PREFIX="cryptopp" \
-    -DCRYPTOPP_LIBRARY=${PREFIX}/lib/libcryptopp.a \
-    -DCRYPTOPP_INCLUDE_DIR=${PREFIX}/include
+    -DCRYPTOPP_LIBRARY=${DEPS_PREFIX}/lib/libcryptopp.a \
+    -DCRYPTOPP_INCLUDE_DIR=${DEPS_PREFIX}/include
 
 make -j"$(nproc)"
 
 # ---------------------------------------------------------------------------
-# 19. Install binaries and package output
+# 19. Install and package /opt/amule
 # ---------------------------------------------------------------------------
 make install
 
 OUTPUT_DIR="/output"
-mkdir -p "${OUTPUT_DIR}"
+PKG_DIR="${OUTPUT_DIR}/amule"
+mkdir -p "${PKG_DIR}"
 
-BIN_DIR="${OUTPUT_DIR}/bin"
-mkdir -p "${BIN_DIR}"
+# Copy /opt/amule to package directory
+cp -a "${AMULE_PREFIX}"/* "${PKG_DIR}/"
 
-# Copy installed aMule binaries
+# Strip binaries
 for bin in amuled amulecmd amuleweb; do
-    src="/usr/local/bin/${bin}"
-    if [ -f "$src" ]; then
-        cp "$src" "${BIN_DIR}/${bin}-linux-${ARCH}${SUFFIX}"
-        strip "${BIN_DIR}/${bin}-linux-${ARCH}${SUFFIX}"
-    fi
+    f="${PKG_DIR}/bin/${bin}"
+    [ -f "$f" ] && strip "$f"
 done
 
-# Create tar.gz archive of all binaries
+# Create tar.gz archive
 PACKAGE_NAME="amule-linux-${ARCH}${SUFFIX}"
 tar -czf "${OUTPUT_DIR}/${PACKAGE_NAME}.tar.gz" \
     -C "${OUTPUT_DIR}" \
-    bin/
+    amule/
 
 echo "=== Build complete ==="
 echo "Package: ${OUTPUT_DIR}/${PACKAGE_NAME}.tar.gz"
-for f in "${BIN_DIR}"/*; do
+for f in "${PKG_DIR}/bin"/*; do
     if [ -f "$f" ]; then
         file "$f"
         ls -lh "$f"

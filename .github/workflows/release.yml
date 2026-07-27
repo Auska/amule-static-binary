@@ -139,7 +139,7 @@ jobs:
 
       - name: 验证二进制文件是静态链接的
         run: |
-          for FILE in output/bin/*-linux-${{ matrix.arch }}; do
+          for FILE in output/amule/bin/amuled output/amule/bin/amulecmd output/amule/bin/amuleweb; do
             if [ -f "$FILE" ]; then
               file "$FILE"
               if readelf -l "$FILE" | grep -q 'INTERP'; then
@@ -192,13 +192,7 @@ jobs:
       - name: 生成 SHA256 校验和
         working-directory: artifacts
         run: |
-          # Extract tar.gz and checksum individual binaries
-          for tgz in *.tar.gz; do
-            tar xzf "$tgz" --strip-components=1
-          done
-          find . -maxdepth 1 -type f -name '*-linux-*' -print0 \
-            | sort -z \
-            | xargs -0 sha256sum > SHA256SUMS
+          sha256sum amule-linux-*.tar.gz > SHA256SUMS
 
       - name: 撰写发布说明
         env:
