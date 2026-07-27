@@ -211,7 +211,7 @@ make install
 cd /build/boost-src
 cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF \
     -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
-cmake --install build 2>/dev/null || true
+cmake --install build
 
 # ---------- 3.3 rpmalloc ----------
 cd "/build/rpmalloc-${RPMALLOC_VERSION}"
