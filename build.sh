@@ -375,8 +375,8 @@ cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
     -DCRYPTOPP_INCLUDE_PREFIX="cryptopp" \
     -DCRYPTOPP_LIBRARY=${DEPS_PREFIX}/lib/libcryptopp.a \
     -DCRYPTOPP_INCLUDE_DIR=${DEPS_PREFIX}/include
-cmake --build build
-cmake --install build
+cmake --build .
+cmake --install .
 
 # ---------- Package output ----------
 OUTPUT_DIR="/output"
