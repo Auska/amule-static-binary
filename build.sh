@@ -210,49 +210,9 @@ make install
 
 # ---------- 3.2 Boost (cmake install) ----------
 cd /build/boost-src
-# Configure generates cmake config + install rules
 cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF \
     -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
-# Install headers + cmake config (skip compiled libs: some need linux/futex.h on musl)
 cmake --install build 2>/dev/null || true
-# Verify cmake config was installed; fallback to manual if missing
-if [ ! -f /usr/local/lib/cmake/BoostConfig.cmake ] && [ -z "$(find /usr/local/lib/cmake -name 'BoostConfig.cmake' 2>/dev/null)" ]; then
-    echo "Boost cmake config not installed, generating manually..."
-    mkdir -p /usr/local/lib/cmake
-    BOOST_VER="${BOOST_VERSION#boost-}"
-    BOOST_VER="${BOOST_VER%%-*}"
-    BOOST_MAJ="${BOOST_VER%%.*}"; BOOST_MIN="${BOOST_VER#*.}"; BOOST_MIN="${BOOST_MIN%.*}"; BOOST_PAT="${BOOST_VER##*.}"
-    BOOST_CMAKE=$(printf "%d%02d%02d" "$BOOST_MAJ" "$BOOST_MIN" "$BOOST_PAT")
-    cat > /usr/local/lib/cmake/BoostConfig.cmake << BOOST_CONFIG_EOF
-include(CMakeFindDependencyMacro)
-if(NOT TARGET Boost::headers)
-    add_library(Boost::headers INTERFACE IMPORTED)
-    set_target_properties(Boost::headers PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "/usr/local/include"
-    )
-endif()
-set(Boost_FOUND TRUE)
-set(Boost_VERSION ${BOOST_CMAKE})
-set(Boost_VERSION_STRING "${BOOST_VER}")
-foreach(_component asio system date_time regex filesystem thread)
-    if(NOT TARGET Boost::\${_component})
-        add_library(Boost::\${_component} INTERFACE IMPORTED)
-        target_link_libraries(Boost::\${_component} INTERFACE Boost::headers)
-    endif()
-endforeach()
-BOOST_CONFIG_EOF
-    cat > /usr/local/lib/cmake/BoostConfigVersion.cmake << BOOST_VERSION_EOF
-set(PACKAGE_VERSION "${BOOST_VER}")
-if("\${PACKAGE_FIND_VERSION}" VERSION_GREATER "${BOOST_VER}")
-    set(PACKAGE_VERSION_COMPATIBLE FALSE)
-else()
-    set(PACKAGE_VERSION_COMPATIBLE TRUE)
-    if("\${PACKAGE_FIND_VERSION}" VERSION_EQUAL "${BOOST_VER}")
-        set(PACKAGE_VERSION_EXACT TRUE)
-    endif()
-endif()
-BOOST_VERSION_EOF
-fi
 
 # ---------- 3.3 rpmalloc ----------
 cd "/build/rpmalloc-${RPMALLOC_VERSION}"
