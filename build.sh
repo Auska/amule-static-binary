@@ -338,16 +338,6 @@ make -j"$(nproc)"
 make install
 
 # wx-config wrapper (resolve real path once at build time)
-WX_CONFIG_REAL=$(find /usr/local/lib/wx/config -name "base-unicode-static-${WX_VERSION_STRIP}" -type f 2>/dev/null | head -1)
-if [ -z "$WX_CONFIG_REAL" ]; then
-    WX_CONFIG_REAL=$(find /usr/local/lib/wx/config -name '*-unicode-static-*' -type f 2>/dev/null | head -1)
-fi
-cat > /usr/local/bin/wx-config << WXCONFIG_SCRIPT
-#!/bin/sh
-exec "${WX_CONFIG_REAL}" --static "\$@"
-WXCONFIG_SCRIPT
-chmod +x /usr/local/bin/wx-config
-
 # ---------- 3.16 pupnp ----------
 cd "/build/pupnp-${PUPNP_VERSION}"
 cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
