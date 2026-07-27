@@ -113,7 +113,7 @@ mkdir -p /build
 cd /build
 
 # musl
-curl -fsSLO "https://github.com/ifduyue/musl/archive/refs/tags/v${MUSL_VERSION}.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/ifduyue/musl/archive/refs/tags/v${MUSL_VERSION}.tar.gz"
 tar xf "v${MUSL_VERSION}.tar.gz"
 # GitHub archive extracts to "musl-{sha}" but we need a fixed dirname
 mkdir -p "musl-${MUSL_VERSION}" && cd "musl-${MUSL_VERSION}"
@@ -121,51 +121,51 @@ tar xf "/build/v${MUSL_VERSION}.tar.gz" --strip-components=1
 cd /build
 
 # rpmalloc
-curl -fsSLO "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_VERSION}.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_VERSION}.tar.gz"
 tar xf "${RPMALLOC_VERSION}.tar.gz"
 
 # zlib-ng
-curl -fsSLO "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/${ZLIB_NG_VERSION}.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/${ZLIB_NG_VERSION}.tar.gz"
 tar xf "${ZLIB_NG_VERSION}.tar.gz"
 
 # libressl
-curl -fsSLO "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-${LIBRESSL_VERSION}.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-${LIBRESSL_VERSION}.tar.gz"
 tar xf "libressl-${LIBRESSL_VERSION}.tar.gz"
 
 # nghttp2
-curl -fsSLO "https://github.com/nghttp2/nghttp2/archive/refs/tags/v${NGHTTP2_VERSION}.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/nghttp2/nghttp2/archive/refs/tags/v${NGHTTP2_VERSION}.tar.gz"
 tar xf "v${NGHTTP2_VERSION}.tar.gz"
 
 # ncurses (generic URL, determine dir after extract)
-curl -fsSLO "https://invisible-island.net/archives/ncurses/ncurses.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://invisible-island.net/archives/ncurses/ncurses.tar.gz"
 tar xf ncurses.tar.gz
 NCURSES_DIR=$(tar tzf ncurses.tar.gz | head -1 | cut -d/ -f1)
 
 # libpsl
-curl -fsSLO "https://github.com/rockdaboot/libpsl/releases/download/${LIBPSL_VERSION}/libpsl-${LIBPSL_VERSION}.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/rockdaboot/libpsl/releases/download/${LIBPSL_VERSION}/libpsl-${LIBPSL_VERSION}.tar.gz"
 tar xf "libpsl-${LIBPSL_VERSION}.tar.gz"
 
 # c-ares
-curl -fsSLO "https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz"
 tar xf "c-ares-${CARES_VERSION}.tar.gz"
 
 # curl
-curl -fsSLO "https://github.com/curl/curl/archive/refs/tags/curl-${CURL_VERSION//./_}.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/curl/curl/archive/refs/tags/curl-${CURL_VERSION//./_}.tar.gz"
 tar xf "curl-${CURL_VERSION//./_}.tar.gz"
 
 # Boost (CMake release from GitHub Releases)
 BOOST_CMAKE_FILE="${BOOST_VERSION}-cmake.tar.xz"
-curl -fsSLO "https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_CMAKE_FILE}"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_CMAKE_FILE}"
 mkdir -p boost-src && cd boost-src
 tar xf "/build/${BOOST_CMAKE_FILE}" --strip-components=1
 cd /build
 
 # cryptopp
-curl -fsSLO "https://github.com/cryptopp-modern/cryptopp-modern/archive/refs/tags/${CRYPTOPP_VERSION}.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/cryptopp-modern/cryptopp-modern/archive/refs/tags/${CRYPTOPP_VERSION}.tar.gz"
 tar xf "${CRYPTOPP_VERSION}.tar.gz"
 
 # wxWidgets
-curl -fsSLO "https://github.com/wxWidgets/wxWidgets/releases/download/${WXWIDGETS_VERSION}/wxWidgets-${WX_VERSION_STRIP}.tar.bz2" || true
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/wxWidgets/wxWidgets/releases/download/${WXWIDGETS_VERSION}/wxWidgets-${WX_VERSION_STRIP}.tar.bz2" || true
 if [ -f "wxWidgets-${WX_VERSION_STRIP}.tar.bz2" ]; then
     tar xf "wxWidgets-${WX_VERSION_STRIP}.tar.bz2"
 else
@@ -174,24 +174,24 @@ else
 fi
 
 # readline
-curl -fsSLO "https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz"
 tar xf "readline-${READLINE_VERSION}.tar.gz"
 
 # libpng
-curl -fsSLO "https://github.com/pnggroup/libpng/archive/refs/tags/${LIBPNG_TAG}.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/pnggroup/libpng/archive/refs/tags/${LIBPNG_TAG}.tar.gz"
 tar xf "${LIBPNG_TAG}.tar.gz"
 
 # libgd
-curl -fsSLO "https://github.com/libgd/libgd/archive/refs/tags/${GD_VERSION}.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/libgd/libgd/archive/refs/tags/${GD_VERSION}.tar.gz"
 tar xf "${GD_VERSION}.tar.gz"
 
 # pupnp
-curl -fsSLO "https://github.com/pupnp/pupnp/archive/refs/tags/${PUPNP_VERSION}.tar.gz"
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/pupnp/pupnp/archive/refs/tags/${PUPNP_VERSION}.tar.gz"
 tar xf "${PUPNP_VERSION}.tar.gz"
 
 # aMule (release or nightly)
 if [ -n "${VERSION_NUM}" ]; then
-    curl -fsSLO "https://github.com/amule-project/amule/archive/refs/tags/${VERSION_NUM}.tar.gz"
+    curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/amule-project/amule/archive/refs/tags/${VERSION_NUM}.tar.gz"
     tar xf "${VERSION_NUM}.tar.gz"
 else
     git clone --filter=blob:none --single-branch https://github.com/amule-project/amule.git
