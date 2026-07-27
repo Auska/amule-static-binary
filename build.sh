@@ -71,6 +71,7 @@ CURL_TAG=$(curl -fsS "https://api.github.com/repos/curl/curl/releases/latest" | 
 CURL_VERSION=$(echo "$CURL_TAG" | sed 's/curl-//' | tr '_' '.')
 echo "curl: ${CURL_VERSION}"
 
+# Boost: use source archive with standard boost/ header layout
 BOOST_VERSION=$(curl -fsS "https://api.github.com/repos/boostorg/boost/releases?per_page=10" | \
     jq -r '[.[] | select(.tag_name | test("beta") | not) | .tag_name][0]')
 echo "boost: ${BOOST_VERSION}"
@@ -153,11 +154,10 @@ tar xf "c-ares-${CARES_VERSION}.tar.gz"
 curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/curl/curl/archive/refs/tags/curl-${CURL_VERSION//./_}.tar.gz"
 tar xf "curl-${CURL_VERSION//./_}.tar.gz"
 
-# Boost (CMake release from GitHub Releases)
-BOOST_CMAKE_FILE="${BOOST_VERSION}-cmake.tar.xz"
-curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_CMAKE_FILE}"
+# Boost (source tarball — headers in top-level boost/)
+curl -fsSLO --retry 5 --retry-delay 10 "https://github.com/boostorg/boost/archive/refs/tags/${BOOST_VERSION}.tar.gz"
 mkdir -p boost-src && cd boost-src
-tar xf "/build/${BOOST_CMAKE_FILE}" --strip-components=1
+tar xf "/build/${BOOST_VERSION}.tar.gz" --strip-components=1
 cd /build
 
 # cryptopp
