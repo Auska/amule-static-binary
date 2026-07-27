@@ -332,6 +332,19 @@ cd "/build/libgd-${GD_VERSION}"
     CFLAGS="${BASE_CFLAGS}" CXXFLAGS="${BASE_CFLAGS}"
 make -j"$(nproc)"
 make install
+# gdlib.pc must expose -lpng -lz in Libs: for static linking of aMule's CAS
+GD_LIB_VERSION="${GD_VERSION#gd-}"
+cat > /usr/local/lib/pkgconfig/gdlib.pc << GD_PC_EOF
+prefix=/usr/local
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+Name: gdlib
+Description: GD graphics library
+Version: ${GD_LIB_VERSION}
+Libs: -L\${libdir} -lgd -lpng -lz
+Cflags: -I\${includedir}
+GD_PC_EOF
 
 # ---------- 3.14 Crypto++ ----------
 cd "/build/cryptopp-modern-${CRYPTOPP_VERSION}"
