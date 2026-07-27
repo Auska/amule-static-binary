@@ -46,7 +46,8 @@ export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 # Part 1 — Fetch version information
 # ============================================================================
 
-MUSL_VERSION="1.2.6"
+MUSL_VERSION=$(curl -fsS "https://api.github.com/repos/ifduyue/musl/tags?per_page=5" | jq -r '.[0].name' | sed 's/^v//')
+echo "musl: ${MUSL_VERSION}"
 
 RPMALLOC_VERSION=$(curl -fsS "https://api.github.com/repos/mjansson/rpmalloc/releases/latest" | jq -r '.tag_name')
 echo "rpmalloc: ${RPMALLOC_VERSION}"
@@ -112,8 +113,12 @@ mkdir -p /build
 cd /build
 
 # musl
-curl -fsSLO "https://git.musl-libc.org/cgit/musl/snapshot/musl-${MUSL_VERSION}.tar.gz"
-tar xf "musl-${MUSL_VERSION}.tar.gz"
+curl -fsSLO "https://github.com/ifduyue/musl/archive/refs/tags/v${MUSL_VERSION}.tar.gz"
+tar xf "v${MUSL_VERSION}.tar.gz"
+# GitHub archive extracts to "musl-{sha}" but we need a fixed dirname
+mkdir -p "musl-${MUSL_VERSION}" && cd "musl-${MUSL_VERSION}"
+tar xf "/build/v${MUSL_VERSION}.tar.gz" --strip-components=1
+cd /build
 
 # rpmalloc
 curl -fsSLO "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_VERSION}.tar.gz"
