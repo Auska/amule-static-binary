@@ -1,0 +1,20 @@
+# Source tarballs and extracted source directories
+*.tar.gz
+*.tar.xz
+*.tar.bz2
+boost-*/
+cryptopp-modern-*/
+libgd-*/
+libpng-*/
+libpsl-*/
+pupnp-*/
+musl-*/
+ncurses-*/
+nghttp2-*/
+rpmalloc-*/
+c-ares-*/
+curl-*/
+libressl-*/
+wxWidgets-*/
+readline-*/
+amule-*/
