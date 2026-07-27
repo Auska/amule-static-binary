@@ -213,7 +213,21 @@ cd /build/boost-src
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
     -B build -G Ninja -DBUILD_TESTING=OFF \
     -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}"
-cmake --install build 2>/dev/null || true
+# Install cmake config from build tree (generated during configure)
+found=$(find build -type f \( -name 'BoostConfig.cmake' -o -name 'boost-config.cmake' \) 2>/dev/null | head -1)
+if [ -n "$found" ]; then
+    cp -r "$(dirname "$found")" /usr/local/lib/cmake/
+    echo "Boost cmake config installed from: $found"
+else
+    # Fallback: search entire build tree
+    found=$(find build -type f -name '*Boost*config*' 2>/dev/null | head -1)
+    [ -n "$found" ] && cp -r "$(dirname "$found")" /usr/local/lib/cmake/ || true
+fi
+# Merge headers from all library subdirectories
+mkdir -p /usr/local/include/boost
+for hdir in libs/*/include/boost; do
+    [ -d "$hdir" ] && cp -r "$hdir"/* /usr/local/include/boost/ 2>/dev/null || true
+done
 
 # ---------- 3.3 rpmalloc ----------
 cd "/build/rpmalloc-${RPMALLOC_VERSION}"
