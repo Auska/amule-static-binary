@@ -58,12 +58,21 @@ BASE_CFLAGS="${ARCH_CFLAGS} -static -O3 -pipe"
 # Version pinning
 # ---------------------------------------------------------------------------
 MUSL_VERSION="1.2.6"
-BOOST_VERSION="boost-1.91.0"
-CRYPTOPP_VERSION="2026.7.1"
-# wxWidgets: pick latest stable v3.2.x release (v3.3.x is development)
+# Boost: latest non-beta tag (e.g. boost-1.91.0)
+BOOST_VERSION=$(curl -fsS "https://api.github.com/repos/boostorg/boost/tags?per_page=20" | \
+    jq -r '[.[].name | select(test("^boost-[0-9]+\\.")) | select(test("beta") | not)][0]')
+echo "Latest Boost version: ${BOOST_VERSION}"
+
+# Crypto++: latest tag
+CRYPTOPP_VERSION=$(curl -fsS "https://api.github.com/repos/cryptopp-modern/cryptopp-modern/tags?per_page=5" | \
+    jq -r '.[0].name')
+echo "Latest Crypto++ version: ${CRYPTOPP_VERSION}"
+
+# wxWidgets: latest stable v3.2.x release (v3.3.x is development)
 WXWIDGETS_VERSION=$(curl -fsS "https://api.github.com/repos/wxWidgets/wxWidgets/releases" | \
     jq -r '[.[] | select(.tag_name | startswith("v3.2")) | .tag_name][0]')
 echo "Latest wxWidgets stable version: ${WXWIDGETS_VERSION}"
+
 READLINE_VERSION="8.2"
 
 # ---------------------------------------------------------------------------
@@ -254,7 +263,9 @@ make install.libs install.includes
 echo "Building libpsl"
 
 cd /build
-LIBPSL_VERSION="0.23.0"
+LIBPSL_VERSION=$(curl -fsS "https://api.github.com/repos/rockdaboot/libpsl/releases/latest" | \
+    jq -r '.tag_name')
+echo "Latest libpsl version: ${LIBPSL_VERSION}"
 curl -fsSLO "https://github.com/rockdaboot/libpsl/archive/refs/tags/${LIBPSL_VERSION}.tar.gz"
 tar xf "${LIBPSL_VERSION}.tar.gz"
 cd "libpsl-${LIBPSL_VERSION}"
@@ -367,9 +378,17 @@ cd "${BOOST_VERSION}"
 # Boost libraries are required on Linux.
 cp -r boost /usr/local/include/boost
 
+# Extract version components from tag (e.g. boost-1.91.0 → 1.91.0, CMake 108100)
+BOOST_VERSION_NUM="${BOOST_VERSION#boost-}"
+BOOST_VERSION_MAJOR="${BOOST_VERSION_NUM%%.*}"
+BOOST_VERSION_MINOR="${BOOST_VERSION_NUM#*.}"
+BOOST_VERSION_MINOR="${BOOST_VERSION_MINOR%.*}"
+BOOST_VERSION_PATCH="${BOOST_VERSION_NUM##*.}"
+BOOST_VERSION_CMAKE=$(printf "%d%02d%02d" "${BOOST_VERSION_MAJOR}" "${BOOST_VERSION_MINOR}" "${BOOST_VERSION_PATCH}")
+
 # Also install CMake config so find_package(Boost CONFIG) can find it
-mkdir -p /usr/local/lib/cmake/boost_headers-1.91.0
-cat > /usr/local/lib/cmake/boost_headers-1.91.0/boost_headers-config.cmake << 'BOOST_CMAKE_EOF'
+mkdir -p "/usr/local/lib/cmake/boost_headers-${BOOST_VERSION_NUM}"
+cat > "/usr/local/lib/cmake/boost_headers-${BOOST_VERSION_NUM}/boost_headers-config.cmake" << 'BOOST_CMAKE_EOF'
 if(NOT TARGET Boost::headers)
     add_library(Boost::headers INTERFACE IMPORTED)
     set_target_properties(Boost::headers PROPERTIES
@@ -379,7 +398,7 @@ endif()
 BOOST_CMAKE_EOF
 
 # Also create a minimal BoostConfig.cmake so find_package(Boost CONFIG) works
-cat > /usr/local/lib/cmake/BoostConfig.cmake << 'BOOST_CONFIG_EOF'
+cat > /usr/local/lib/cmake/BoostConfig.cmake << BOOST_CONFIG_EOF
 # Minimal BoostConfig.cmake for header-only usage
 include(CMakeFindDependencyMacro)
 if(NOT TARGET Boost::headers)
@@ -389,28 +408,28 @@ if(NOT TARGET Boost::headers)
     )
 endif()
 set(Boost_FOUND TRUE)
-set(Boost_VERSION 108100)
-set(Boost_VERSION_STRING "1.91.0")
+set(Boost_VERSION ${BOOST_VERSION_CMAKE})
+set(Boost_VERSION_STRING "${BOOST_VERSION_NUM}")
 set(Boost_INCLUDE_DIRS "/usr/local/include")
 set(Boost_INCLUDE_DIR "/usr/local/include")
 
 # Define the component targets that find_package(Boost ... COMPONENTS ...) expects
 foreach(_component asio system date_time regex filesystem thread)
-    if(NOT TARGET Boost::${_component})
-        add_library(Boost::${_component} INTERFACE IMPORTED)
-        target_link_libraries(Boost::${_component} INTERFACE Boost::headers)
+    if(NOT TARGET Boost::\${_component})
+        add_library(Boost::\${_component} INTERFACE IMPORTED)
+        target_link_libraries(Boost::\${_component} INTERFACE Boost::headers)
     endif()
 endforeach()
 BOOST_CONFIG_EOF
 
 # Also provide BoostConfigVersion.cmake
-cat > /usr/local/lib/cmake/BoostConfigVersion.cmake << 'BOOST_VERSION_EOF'
-set(PACKAGE_VERSION "1.91.0")
-if("${PACKAGE_FIND_VERSION}" VERSION_GREATER "1.91.0")
+cat > /usr/local/lib/cmake/BoostConfigVersion.cmake << BOOST_VERSION_EOF
+set(PACKAGE_VERSION "${BOOST_VERSION_NUM}")
+if("\${PACKAGE_FIND_VERSION}" VERSION_GREATER "${BOOST_VERSION_NUM}")
     set(PACKAGE_VERSION_COMPATIBLE FALSE)
 else()
     set(PACKAGE_VERSION_COMPATIBLE TRUE)
-    if("${PACKAGE_FIND_VERSION}" VERSION_EQUAL "1.91.0")
+    if("\${PACKAGE_FIND_VERSION}" VERSION_EQUAL "${BOOST_VERSION_NUM}")
         set(PACKAGE_VERSION_EXACT TRUE)
     endif()
 endif()
@@ -557,7 +576,9 @@ make install
 echo "Building libpng"
 
 cd /build
-LIBPNG_TAG="v1.6.58"
+LIBPNG_TAG=$(curl -fsS "https://api.github.com/repos/pnggroup/libpng/git/matching-refs/tags/v1.6" | \
+    jq -r '[.[].ref | split("/")[2]] | sort | reverse[0]')
+echo "Latest libpng version: ${LIBPNG_TAG}"
 curl -fsSLO "https://github.com/pnggroup/libpng/archive/refs/tags/${LIBPNG_TAG}.tar.gz"
 tar xf "${LIBPNG_TAG}.tar.gz"
 cd "libpng-${LIBPNG_TAG#v}"
@@ -582,7 +603,9 @@ cmake --install build
 echo "Building libgd"
 
 cd /build
-GD_VERSION="gd-2.3.3"
+GD_VERSION=$(curl -fsS "https://api.github.com/repos/libgd/libgd/tags?per_page=10" | \
+    jq -r '[.[].name | select(test("^gd-"))][0]')
+echo "Latest libgd version: ${GD_VERSION}"
 curl -fsSLO "https://github.com/libgd/libgd/archive/refs/tags/${GD_VERSION}.tar.gz"
 tar xf "${GD_VERSION}.tar.gz"
 cd "libgd-${GD_VERSION}"
@@ -621,7 +644,7 @@ includedir=${prefix}/include
 
 Name: gdlib
 Description: GD graphics library
-Version: 2.3.3
+Version: ${GD_VERSION#gd-}
 Libs: -L${libdir} -lgd -lpng -lz
 Cflags: -I${includedir}
 GD_PC_EOF
@@ -632,7 +655,9 @@ GD_PC_EOF
 echo "Building pupnp"
 
 cd /build
-PUPNP_VERSION="release-22.0.4"
+PUPNP_VERSION=$(curl -fsS "https://api.github.com/repos/pupnp/pupnp/releases/latest" | \
+    jq -r '.tag_name')
+echo "Latest pupnp version: ${PUPNP_VERSION}"
 curl -fsSLO "https://github.com/pupnp/pupnp/archive/refs/tags/${PUPNP_VERSION}.tar.gz"
 tar xf "${PUPNP_VERSION}.tar.gz"
 cd "pupnp-${PUPNP_VERSION}"
