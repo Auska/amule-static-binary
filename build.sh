@@ -95,7 +95,7 @@ READLINE_VERSION=$(curl -fsSL "https://ftp.gnu.org/gnu/readline/" | \
 echo "readline: ${READLINE_VERSION}"
 
 LIBPNG_TAG=$(curl -fsS "https://api.github.com/repos/pnggroup/libpng/git/matching-refs/tags/v1.6" | \
-    jq -r '[.[].ref | split("/")[2]] | sort | reverse[0]')
+    jq -r '[.[].ref | split("/")[2] | select(test("rc|beta|alpha") | not)] | sort | reverse[0]')
 echo "libpng: ${LIBPNG_TAG}"
 
 GD_VERSION=$(curl -fsS "https://api.github.com/repos/libgd/libgd/tags?per_page=10" | \
