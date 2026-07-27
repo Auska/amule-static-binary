@@ -46,7 +46,7 @@ export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 # Part 1 — Fetch version information
 # ============================================================================
 
-MUSL_VERSION=$(curl -fsS "https://api.github.com/repos/ifduyue/musl/tags?per_page=5" | jq -r '.[0].name' | sed 's/^v//')
+MUSL_VERSION=$(curl -fsS "https://api.github.com/repos/ifduyue/musl/tags?per_page=10" | jq -r '.[].name' | sed 's/^v//' | sort -V | tail -1)
 echo "musl: ${MUSL_VERSION}"
 
 RPMALLOC_VERSION=$(curl -fsS "https://api.github.com/repos/mjansson/rpmalloc/releases/latest" | jq -r '.tag_name')
@@ -82,7 +82,7 @@ BOOST_VERSION_MINOR="${BOOST_VERSION_MINOR%.*}"
 BOOST_VERSION_PATCH="${BOOST_VERSION_NUM##*.}"
 BOOST_VERSION_CMAKE=$(printf "%d%02d%02d" "${BOOST_VERSION_MAJOR}" "${BOOST_VERSION_MINOR}" "${BOOST_VERSION_PATCH}")
 
-CRYPTOPP_VERSION=$(curl -fsS "https://api.github.com/repos/cryptopp-modern/cryptopp-modern/tags?per_page=5" | jq -r '.[0].name')
+CRYPTOPP_VERSION=$(curl -fsS "https://api.github.com/repos/cryptopp-modern/cryptopp-modern/tags?per_page=10" | jq -r '.[].name' | sort -V | tail -1)
 echo "cryptopp: ${CRYPTOPP_VERSION}"
 
 WXWIDGETS_VERSION=$(curl -fsS "https://api.github.com/repos/wxWidgets/wxWidgets/releases" | \
@@ -98,8 +98,8 @@ LIBPNG_TAG=$(curl -fsS "https://api.github.com/repos/pnggroup/libpng/git/matchin
     jq -r '[.[].ref | split("/")[2] | select(test("rc|beta|alpha") | not)] | .[]' | sort -V | tail -1)
 echo "libpng: ${LIBPNG_TAG}"
 
-GD_VERSION=$(curl -fsS "https://api.github.com/repos/libgd/libgd/tags?per_page=10" | \
-    jq -r '[.[].name | select(test("^gd-"))][0]')
+GD_VERSION=$(curl -fsS "https://api.github.com/repos/libgd/libgd/tags?per_page=20" | \
+    jq -r '[.[].name | select(test("^gd-"))] | .[]' | sort -V | tail -1)
 echo "libgd: ${GD_VERSION}"
 GD_LIB_VERSION="${GD_VERSION#gd-}"
 
