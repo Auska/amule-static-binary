@@ -266,14 +266,11 @@ cd /build
 LIBPSL_VERSION=$(curl -fsS "https://api.github.com/repos/rockdaboot/libpsl/releases/latest" | \
     jq -r '.tag_name')
 echo "Latest libpsl version: ${LIBPSL_VERSION}"
-curl -fsSLO "https://github.com/rockdaboot/libpsl/archive/refs/tags/${LIBPSL_VERSION}.tar.gz"
-tar xf "${LIBPSL_VERSION}.tar.gz"
+curl -fsSLO "https://github.com/rockdaboot/libpsl/releases/download/${LIBPSL_VERSION}/libpsl-${LIBPSL_VERSION}.tar.gz"
+tar xf "libpsl-${LIBPSL_VERSION}.tar.gz"
 cd "libpsl-${LIBPSL_VERSION}"
 
-# libpsl uses autotools; needs a kickstart
-if [ ! -f configure ]; then
-    autoreconf -fi
-fi
+# Pre-generated configure is included in the release tarball
 
 ./configure \
     --prefix=/usr/local \
