@@ -1,0 +1,238 @@
+name: Build static aMule binaries (nightly)
+
+# 每天运行以构建每日构建版本（当 aMule 有新提交时）。
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 每天 UTC 02:00
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: '即使上游提交未变更也强制重新构建'
+        required: false
+        default: false
+        type: boolean
+      amule_sha:
+        description: 'aMule 提交 SHA 以构建，例如 2f3e4d5 / 留空 = 最新。'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  # --------------------------------------------------------------------------
+  # 检测 amule-project/amule 自上次每日构建以来是否有新提交。
+  # --------------------------------------------------------------------------
+  check-version:
+    name: 检查新提交
+    runs-on: ubuntu-slim
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      amule_sha:       ${{ steps.upstream.outputs.amule_sha }}
+      amule_short_sha: ${{ steps.upstream.outputs.amule_short_sha }}
+      build_id:        ${{ steps.upstream.outputs.build_id }}
+      should_build:    ${{ steps.check.outputs.should_build }}
+
+    steps:
+      - name: 获取最新上游提交
+        id: upstream
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_AMULE_SHA: ${{ inputs.amule_sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ -n "$INPUT_AMULE_SHA" ]]; then
+            echo "amule_sha=$INPUT_AMULE_SHA" >> "$GITHUB_OUTPUT"
+            echo "amule_short_sha=$(printf '%s' "$INPUT_AMULE_SHA" | cut -c1-7)" >> "$GITHUB_OUTPUT"
+            echo "使用用户提供的 aMule SHA: $INPUT_AMULE_SHA"
+          else
+            branch=$(gh api "repos/amule-project/amule" --jq .default_branch)
+            sha=$(gh api "repos/amule-project/amule/commits/${branch}" --jq .sha)
+            short_sha=$(printf '%s' "$sha" | cut -c1-7)
+            echo "amule_sha=${sha}" >> "$GITHUB_OUTPUT"
+            echo "amule_short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+            echo "aMule: ${branch} @ ${sha}"
+          fi
+
+          amule_sha=$(awk -F= '$1 == "amule_sha" { print $2 }' "$GITHUB_OUTPUT")
+          amule_short_sha=$(printf '%s' "$amule_sha" | cut -c1-7)
+          echo "build_id=${amule_short_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: 检查上次每日构建
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE_REBUILD: ${{ inputs.force_rebuild || 'false' }}
+          CURRENT_AMULE_SHA: ${{ steps.upstream.outputs.amule_sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$FORCE_REBUILD" == "true" ]]; then
+            echo "force_rebuild=true; 安排每日构建。"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          mkdir -p previous
+          previous_run_id=""
+
+          while read -r run_id; do
+            [[ -n "$run_id" ]] || continue
+            rm -rf previous
+            mkdir -p previous
+
+            if gh run download "$run_id" \
+                 --repo "${{ github.repository }}" \
+                 --name nightly-upstream-commits \
+                 --dir previous >/dev/null 2>&1; then
+              previous_run_id="$run_id"
+              break
+            fi
+          done < <(
+            gh run list \
+              --repo "${{ github.repository }}" \
+              --workflow nightly.yml \
+              --status success \
+              --limit 30 \
+              --json databaseId \
+              --jq '.[].databaseId'
+          )
+
+          if [[ -z "$previous_run_id" || ! -f previous/UPSTREAM_COMMITS ]]; then
+            echo "未找到上次每日构建元数据。安排构建。"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          previous_amule_sha=$(awk -F= '$1 == "amule_sha" { print $2 }' previous/UPSTREAM_COMMITS)
+
+          echo "上次每日构建运行: ${previous_run_id}"
+          echo "上次 aMule: ${previous_amule_sha}"
+          echo "当前 aMule: ${CURRENT_AMULE_SHA}"
+
+          if [[ "$previous_amule_sha" == "$CURRENT_AMULE_SHA" ]]; then
+            echo "自上次每日构建以来没有新提交。跳过。"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "检测到新提交。安排构建。"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # --------------------------------------------------------------------------
+  # 为每个目标架构构建静态二进制文件。
+  # --------------------------------------------------------------------------
+  build:
+    name: 构建 (${{ matrix.arch }})
+    needs: check-version
+    if: needs.check-version.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64]
+    outputs:
+      alpine_version: ${{ steps.alpine.outputs.version }}
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v6
+
+      - name: 读取 Alpine 版本号
+        id: alpine
+        run: |
+          ALPINE_VERSION=$(docker run --rm alpine:latest cat /etc/alpine-release)
+          echo "version=$ALPINE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Alpine version: $ALPINE_VERSION"
+
+      - name: 在 Alpine Linux 容器中构建静态 aMule 二进制文件
+        env:
+          AMULE_SHA: ${{ needs.check-version.outputs.amule_sha }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          SUFFIX="-daily-${{ needs.check-version.outputs.build_id }}"
+          mkdir -p "${{ github.workspace }}/output"
+          docker run --rm \
+            --platform "linux/${{ matrix.arch }}" \
+            -e "AMULE_SHA=${AMULE_SHA}" \
+            -e "ARCH=${ARCH}" \
+            -e "SUFFIX=${SUFFIX}" \
+            -v "${{ github.workspace }}/build.sh:/build.sh:ro" \
+            -v "${{ github.workspace }}/output:/output" \
+            alpine:latest /bin/sh /build.sh
+
+      - name: 验证二进制文件是静态链接的
+        run: |
+          SUFFIX="-daily-${{ needs.check-version.outputs.build_id }}"
+          for FILE in output/bin/*-linux-${{ matrix.arch }}${SUFFIX}; do
+            if [ -f "$FILE" ]; then
+              file "$FILE"
+              if readelf -l "$FILE" | grep -q 'INTERP'; then
+                echo "ERROR: $FILE is NOT statically linked!"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: 上传打包产物
+        uses: actions/upload-artifact@v7
+        with:
+          name: amule-linux-${{ matrix.arch }}-daily-${{ needs.check-version.outputs.build_id }}
+          path: output/amule-linux-${{ matrix.arch }}-daily-${{ needs.check-version.outputs.build_id }}.tar.gz
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  # 将每日构建产物发布为 Actions artifacts。
+  # --------------------------------------------------------------------------
+  publish-artifacts:
+    name: 发布每日构建产物
+    needs: [check-version, build]
+    if: needs.check-version.outputs.should_build == 'true'
+    runs-on: ubuntu-slim
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: 下载编译产物
+        uses: actions/download-artifact@v8
+        with:
+          pattern: '*-linux-*'
+          path: artifacts
+          merge-multiple: true
+
+      - name: 生成构建元数据和校验和
+        working-directory: artifacts
+        env:
+          ALPINE_VERSION: ${{ needs.build.outputs.alpine_version }}
+          AMULE_SHA: ${{ needs.check-version.outputs.amule_sha }}
+          BUILD_ID: ${{ needs.check-version.outputs.build_id }}
+        run: |
+          find . -maxdepth 1 -type f -name '*-linux-*' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > SHA256SUMS
+
+          {
+            echo "amule_sha=${AMULE_SHA}"
+            echo "build_id=${BUILD_ID}"
+            echo "alpine_version=${ALPINE_VERSION}"
+            echo "built_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          } > UPSTREAM_COMMITS
+
+      - name: 上传每日构建产物包
+        uses: actions/upload-artifact@v7
+        with:
+          name: amule-nightly-${{ needs.check-version.outputs.build_id }}
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 上传每日构建提交元数据
+        uses: actions/upload-artifact@v7
+        with:
+          name: nightly-upstream-commits
+          path: artifacts/UPSTREAM_COMMITS
+          if-no-files-found: error
+          retention-days: 90

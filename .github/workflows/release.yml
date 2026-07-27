@@ -1,0 +1,222 @@
+name: Build static aMule binaries (release)
+
+# 每天运行以检查新的上游发布版本，并允许手动触发。
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 每天 UTC 02:00
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'aMule 版本标签，例如 3.0.0 / 留空 = 最新。'
+        required: false
+        default: ''
+        type: string
+      force_rebuild:
+        description: '强制重新构建，即使该版本已经发布过'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  # --------------------------------------------------------------------------
+  # 检测 amule-project/amule 是否有我们尚未构建的新发布版本。
+  # --------------------------------------------------------------------------
+  check-version:
+    name: 检查新发布版本
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    outputs:
+      version:     ${{ steps.release.outputs.version }}
+      version_num: ${{ steps.release.outputs.version_num }}
+      release_body: ${{ steps.release.outputs.release_body }}
+      should_build: ${{ steps.check.outputs.should_build }}
+
+    steps:
+      - name: 获取 amule-project/amule 的最新发布版本
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ -n "$INPUT_VERSION" ]]; then
+            VERSION="$INPUT_VERSION"
+            # 尝试作为 tag 获取发布版本
+            RELEASE_JSON=$(gh api "repos/amule-project/amule/releases/tags/$VERSION" 2>/dev/null || \
+                           gh api "repos/amule-project/amule/releases/tags/v$VERSION" 2>/dev/null || \
+                           echo '{"tag_name":"'"$VERSION"'","body":""}')
+          else
+            RELEASE_JSON=$(gh api repos/amule-project/amule/releases/latest)
+            VERSION=$(echo "$RELEASE_JSON" | jq -r .tag_name)
+          fi
+          VERSION_NUM="${VERSION#v}"
+          VERSION_NUM="${VERSION_NUM#Release-}"
+          RELEASE_BODY=$(echo "$RELEASE_JSON" | jq -r '.body // ""')
+          echo "version=$VERSION"         >> "$GITHUB_OUTPUT"
+          echo "version_num=$VERSION_NUM" >> "$GITHUB_OUTPUT"
+          {
+            echo "release_body<<EOF"
+            echo "$RELEASE_BODY"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Latest upstream aMule: $VERSION (version_num: $VERSION_NUM)"
+
+      - name: 检查该版本是否已在此仓库发布
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          FORCE="${{ inputs.force_rebuild || 'false' }}"
+
+          if gh api "repos/${{ github.repository }}/releases/tags/$VERSION" \
+               --silent 2>/dev/null; then
+            if [[ "$FORCE" == "true" ]]; then
+              echo "发布 $VERSION 已存在但 force_rebuild=true。重新构建。"
+              echo "should_build=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "发布 $VERSION 已存在。跳过构建。"
+              echo "should_build=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "此仓库中未找到发布 $VERSION。安排构建。"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # --------------------------------------------------------------------------
+  # 为每个目标架构构建静态二进制文件。
+  # amd64 和 arm64 任务并行运行；arm64 使用 QEMU 仿真。
+  # --------------------------------------------------------------------------
+  build:
+    name: 构建 (${{ matrix.arch }})
+    needs: check-version
+    if: needs.check-version.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, amd64-gracemont, amd64-tremont, amd64-v3]
+        include:
+          - arch: amd64
+            platform: amd64
+          - arch: amd64-gracemont
+            platform: amd64
+          - arch: amd64-tremont
+            platform: amd64
+          - arch: amd64-v3
+            platform: amd64
+    outputs:
+      alpine_version: ${{ steps.alpine.outputs.version }}
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v6
+
+      - name: 读取 Alpine 版本号
+        id: alpine
+        run: |
+          ALPINE_VERSION=$(docker run --rm alpine:latest cat /etc/alpine-release)
+          echo "version=$ALPINE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Alpine version: $ALPINE_VERSION"
+
+      - name: 在 Alpine Linux 容器中构建静态 aMule 二进制文件
+        env:
+          VERSION_NUM: ${{ needs.check-version.outputs.version_num }}
+          ARCH: ${{ matrix.arch }}
+          SUFFIX: ""
+        run: |
+          mkdir -p "${{ github.workspace }}/output"
+          docker run --rm \
+            --platform "linux/${{ matrix.platform }}" \
+            -e "VERSION_NUM=${VERSION_NUM}" \
+            -e "ARCH=${ARCH}" \
+            -e "SUFFIX=${SUFFIX}" \
+            -v "${{ github.workspace }}/build.sh:/build.sh:ro" \
+            -v "${{ github.workspace }}/output:/output" \
+            alpine:latest /bin/sh /build.sh
+
+      - name: 验证二进制文件是静态链接的
+        run: |
+          for FILE in output/bin/*-linux-${{ matrix.arch }}; do
+            if [ -f "$FILE" ]; then
+              file "$FILE"
+              if readelf -l "$FILE" | grep -q 'INTERP'; then
+                echo "ERROR: $FILE is NOT statically linked!"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: 上传打包产物
+        uses: actions/upload-artifact@v7
+        with:
+          name: amule-linux-${{ matrix.arch }}
+          path: output/amule-linux-${{ matrix.arch }}.tar.gz
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  # 创建包含所有二进制文件和校验文件的 GitHub Release。
+  # 发布标签与上游 aMule 标签一致（例如 3.0.0）。
+  # --------------------------------------------------------------------------
+  release:
+    name: 创建 GitHub Release
+    needs: [check-version, build]
+    if: needs.check-version.outputs.should_build == 'true'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - name: 如果 force_rebuild 则删除已有 Release 和标签
+        if: inputs.force_rebuild == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: |
+          gh release delete "$VERSION" \
+            --repo "${{ github.repository }}" \
+            --yes \
+            --cleanup-tag \
+            2>/dev/null || true
+
+      - name: 下载编译产物
+        uses: actions/download-artifact@v8
+        with:
+          pattern: '*-linux-*'
+          path: artifacts
+          merge-multiple: true
+
+      - name: 生成 SHA256 校验和
+        working-directory: artifacts
+        run: |
+          # Extract tar.gz and checksum individual binaries
+          for tgz in *.tar.gz; do
+            tar xzf "$tgz" --strip-components=1
+          done
+          find . -maxdepth 1 -type f -name '*-linux-*' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > SHA256SUMS
+
+      - name: 撰写发布说明
+        env:
+          ALPINE_VERSION: ${{ needs.build.outputs.alpine_version }}
+          RELEASE_BODY: ${{ needs.check-version.outputs.release_body }}
+        run: |
+          printf '%s\n\n' "$RELEASE_BODY" > artifacts/RELEASE_BODY.md
+          printf -- '---\n\n**静态二进制文件构建于：** Alpine Linux %s\n' "$ALPINE_VERSION" >> artifacts/RELEASE_BODY.md
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.check-version.outputs.version }}
+          name: aMule ${{ needs.check-version.outputs.version }}
+          body_path: artifacts/RELEASE_BODY.md
+          files: |
+            artifacts/amule-linux-*.tar.gz
+            artifacts/SHA256SUMS
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
