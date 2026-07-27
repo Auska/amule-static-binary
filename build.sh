@@ -380,7 +380,7 @@ mkdir -p build && cd build
 # cryptopp-modern uses a different version scheme; bypass the strict version check
 sed -i 's/set (MIN_CRYPTOPP_VERSION 5.6)/set (MIN_CRYPTOPP_VERSION 0.0)/' ../CMakeLists.txt
 # CAS needs explicit -lpng -lz (gdlib.pc doesn't expose transitive deps without --static)
-sed -i 's/target_link_libraries (cas$/target_link_libraries (cas\n\tPRIVATE -lpng -lz/' ../src/utils/cas/CMakeLists.txt
+sed -i 's/PRIVATE PkgConfig::gdlib/PRIVATE PkgConfig::gdlib\n\tPRIVATE -lpng -lz/' ../src/utils/cas/CMakeLists.txt
 cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
     -DBUILD_WEBSERVER=ON -DBUILD_CAS=ON -DENABLE_NLS=OFF -DBUILD_MONOLITHIC=OFF \
     -DBUILD_REMOTEGUI=OFF -DBUILD_DAEMON=ON -DBUILD_WXCAS=OFF -DBUILD_ALCC=ON \
