@@ -23,374 +23,57 @@ if [ -z "${VERSION_NUM}" ] && [ -z "${AMULE_SHA}" ]; then
     exit 1
 fi
 
-# ---------------------------------------------------------------------------
 # Architecture-specific compiler flags
-# ---------------------------------------------------------------------------
 case "${ARCH}" in
-    amd64|x86_64)
-        ARCH_CFLAGS="-march=x86-64-v2"
-        ZLIB_AVX2="OFF"
-        ;;
-    amd64-gracemont|x86_64-gracemont)
-        ARCH_CFLAGS="-march=gracemont -mtune=gracemont"
-        ZLIB_AVX2="ON"
-        ;;
-    amd64-tremont|x86_64-tremont)
-        ARCH_CFLAGS="-march=tremont -mtune=tremont"
-        ZLIB_AVX2="OFF"
-        ;;
-    amd64-v3|x86_64-v3)
-        ARCH_CFLAGS="-march=x86-64-v3"
-        ZLIB_AVX2="ON"
-        ;;
-    arm64|aarch64)
-        ARCH_CFLAGS="-march=armv8-a"
-        ZLIB_AVX2="OFF"
-        ;;
-    *)
-        ARCH_CFLAGS=""
-        ZLIB_AVX2="OFF"
-        ;;
+    amd64|x86_64)           ARCH_CFLAGS="-march=x86-64-v2"; ZLIB_AVX2="OFF" ;;
+    amd64-gracemont|x86_64-gracemont) ARCH_CFLAGS="-march=gracemont -mtune=gracemont"; ZLIB_AVX2="ON" ;;
+    amd64-tremont|x86_64-tremont) ARCH_CFLAGS="-march=tremont -mtune=tremont"; ZLIB_AVX2="OFF" ;;
+    amd64-v3|x86_64-v3)     ARCH_CFLAGS="-march=x86-64-v3"; ZLIB_AVX2="ON" ;;
+    arm64|aarch64)          ARCH_CFLAGS="-march=armv8-a"; ZLIB_AVX2="OFF" ;;
+    *)                      ARCH_CFLAGS=""; ZLIB_AVX2="OFF" ;;
 esac
 BASE_CFLAGS="${ARCH_CFLAGS} -static -O3 -pipe"
 
-# ---------------------------------------------------------------------------
-# Version pinning (static versions only — dynamic fetches below)
-# ---------------------------------------------------------------------------
-MUSL_VERSION="1.2.6"
-# Readline: latest stable from GNU FTP
-READLINE_VERSION=$(curl -fsSL "https://ftp.gnu.org/gnu/readline/" | \
-    grep -oP 'readline-\d+\.\d+\.tar\.gz' | \
-    sed 's/readline-//;s/\.tar\.gz//' | \
-    sort -V | tail -1)
-echo "Readline version: ${READLINE_VERSION}"
-
-# ---------------------------------------------------------------------------
-# 1. System packages
-# ---------------------------------------------------------------------------
+# System packages
 apk add --no-cache \
-    autoconf \
-    autoconf-archive \
-    automake \
-    build-base \
-    cmake \
-    cppunit-dev \
-    curl \
-    gawk \
-    gettext-dev \
-    git \
-    jq \
-    libtool \
-    ninja \
-    pkgconf \
-    python3 \
-    bison \
-    flex
+    autoconf autoconf-archive automake build-base cmake cppunit-dev \
+    curl gawk gettext-dev git jq libtool ninja pkgconf python3 bison flex
 
 export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
 export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
-# ---------------------------------------------------------------------------
-# Dynamic version fetch (curl & jq available now)
-# ---------------------------------------------------------------------------
+# ============================================================================
+# Part 1 — Fetch version information
+# ============================================================================
 
-# Boost: fetch latest release tag, then download CMake tarball from releases
-BOOST_VERSION=$(curl -fsS "https://api.github.com/repos/boostorg/boost/releases?per_page=10" | \
-    jq -r '[.[] | select(.tag_name | test("beta") | not) | .tag_name][0]')
-echo "Boost version: ${BOOST_VERSION}"
+MUSL_VERSION="1.2.6"
 
-# Crypto++: latest tag
-CRYPTOPP_VERSION=$(curl -fsS "https://api.github.com/repos/cryptopp-modern/cryptopp-modern/tags?per_page=5" | \
-    jq -r '.[0].name')
-echo "Latest Crypto++ version: ${CRYPTOPP_VERSION}"
-
-# wxWidgets: latest stable v3.2.x release (v3.3.x is development)
-WXWIDGETS_VERSION=$(curl -fsS "https://api.github.com/repos/wxWidgets/wxWidgets/releases" | \
-    jq -r '[.[] | select(.tag_name | startswith("v3.2")) | .tag_name][0]')
-echo "Latest wxWidgets stable version: ${WXWIDGETS_VERSION}"
-
-# ---------------------------------------------------------------------------
-# 2. Build musl libc
-# ---------------------------------------------------------------------------
-echo "Building musl libc ${MUSL_VERSION}"
-
-mkdir -p /build
-cd /build
-curl -fsSLO "https://git.musl-libc.org/cgit/musl/snapshot/musl-${MUSL_VERSION}.tar.gz"
-tar xf "musl-${MUSL_VERSION}.tar.gz"
-cd "musl-${MUSL_VERSION}"
-
-./configure \
-    --prefix=/usr/local \
-    --disable-shared \
-    CFLAGS="${ARCH_CFLAGS} -O3 -pipe"
-
-make -j"$(nproc)"
-make install
-
-export LIBRARY_PATH="/usr/local/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
-export CPATH="/usr/local/include${CPATH:+:$CPATH}"
-
-# ---------------------------------------------------------------------------
-# 3. Build rpmalloc (modern heap memory allocator)
-# ---------------------------------------------------------------------------
 RPMALLOC_VERSION=$(curl -fsS "https://api.github.com/repos/mjansson/rpmalloc/releases/latest" | jq -r '.tag_name')
-echo "Latest rpmalloc version: ${RPMALLOC_VERSION}"
+echo "rpmalloc: ${RPMALLOC_VERSION}"
 
-cd /build
-curl -fsSLO "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_VERSION}.tar.gz"
-tar xf "${RPMALLOC_VERSION}.tar.gz"
-cd "rpmalloc-${RPMALLOC_VERSION}"
-
-case "${ARCH}" in
-    amd64*|x86_64*)  RPMALLOC_ARCH="x86-64"  ;;
-    arm64|aarch64)   RPMALLOC_ARCH="arm64"    ;;
-    *)               RPMALLOC_ARCH=""         ;;
-esac
-
-python3 configure.py --lto -c release --toolchain gcc ${RPMALLOC_ARCH:+-a "${RPMALLOC_ARCH}"}
-
-ninja -j"$(nproc)" "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a"
-
-mkdir -p /usr/local/lib
-cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a" /usr/local/lib/
-
-# ---------------------------------------------------------------------------
-# 4. Build zlib-ng
-# ---------------------------------------------------------------------------
 ZLIB_NG_VERSION=$(curl -fsS "https://api.github.com/repos/zlib-ng/zlib-ng/releases/latest" | jq -r '.tag_name')
-echo "Latest zlib-ng version: ${ZLIB_NG_VERSION}"
+echo "zlib-ng: ${ZLIB_NG_VERSION}"
 
-cd /build
-curl -fsSLO "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/${ZLIB_NG_VERSION}.tar.gz"
-tar xf "${ZLIB_NG_VERSION}.tar.gz"
-cd "zlib-ng-${ZLIB_NG_VERSION}"
-
-cmake -B build \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DBUILD_TESTING=OFF \
-    -DZLIB_COMPAT=ON \
-    -DWITH_AVX512=OFF \
-    -DWITH_AVX2=${ZLIB_AVX2} \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
-    -DCMAKE_EXE_LINKER_FLAGS="-static" \
-    -DCMAKE_INSTALL_LIBDIR=lib
-
-cmake --build build -j"$(nproc)"
-cmake --install build
-
-rm -f /usr/lib/pkgconfig/zlib.pc 2>/dev/null || true
-
-# ---------------------------------------------------------------------------
-# 5. Build LibreSSL
-# ---------------------------------------------------------------------------
 LIBRESSL_VERSION=$(curl -fsS "https://api.github.com/repos/libressl/portable/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
-echo "Latest LibreSSL version: ${LIBRESSL_VERSION}"
+echo "libressl: ${LIBRESSL_VERSION}"
 
-cd /build
-curl -fsSLO "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-${LIBRESSL_VERSION}.tar.gz"
-tar xf "libressl-${LIBRESSL_VERSION}.tar.gz"
-cd "libressl-${LIBRESSL_VERSION}"
-
-cmake -B build \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DLIBRESSL_APPS=OFF \
-    -DLIBRESSL_TESTS=OFF \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
-    -DCMAKE_EXE_LINKER_FLAGS="-static" \
-    -DCMAKE_INSTALL_LIBDIR=lib
-
-cmake --build build -j"$(nproc)"
-cmake --install build
-
-# ---------------------------------------------------------------------------
-# 6. Build nghttp2
-# ---------------------------------------------------------------------------
 NGHTTP2_VERSION=$(curl -fsS "https://api.github.com/repos/nghttp2/nghttp2/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
-echo "Latest nghttp2 version: ${NGHTTP2_VERSION}"
+echo "nghttp2: ${NGHTTP2_VERSION}"
 
-cd /build
-curl -fsSLO "https://github.com/nghttp2/nghttp2/archive/refs/tags/v${NGHTTP2_VERSION}.tar.gz"
-tar xf "v${NGHTTP2_VERSION}.tar.gz"
-cd "nghttp2-${NGHTTP2_VERSION}"
+LIBPSL_VERSION=$(curl -fsS "https://api.github.com/repos/rockdaboot/libpsl/releases/latest" | jq -r '.tag_name')
+echo "libpsl: ${LIBPSL_VERSION}"
 
-autoreconf -fi
-./configure \
-    --enable-static \
-    --disable-shared \
-    --disable-debug \
-    --enable-lib-only \
-    PKG_CONFIG="pkg-config --static" \
-    CFLAGS="${BASE_CFLAGS}" \
-    CXXFLAGS="${BASE_CFLAGS}"
-
-make -j"$(nproc)"
-make install
-
-# ---------------------------------------------------------------------------
-# 7. Build ncurses (needed by readline)
-# ---------------------------------------------------------------------------
-cd /build
-curl -fsSLO "https://invisible-island.net/archives/ncurses/ncurses.tar.gz"
-tar xf ncurses.tar.gz
-NCURSES_DIR=$(tar tzf ncurses.tar.gz | head -1 | cut -d/ -f1)
-cd "$NCURSES_DIR"
-
-mkdir -p build && cd build
-
-../configure \
-    --prefix=/usr/local \
-    --enable-static \
-    --disable-shared \
-    --enable-pc-files \
-    --with-pkg-config-libdir=/usr/local/lib/pkgconfig \
-    --without-debug \
-    --without-manpages \
-    --with-termlib \
-    --disable-big-core \
-    --disable-big-strings \
-    --disable-relink \
-    --disable-rpath \
-    --without-ada \
-    --without-tests \
-    --without-progs \
-    --with-fallback="linux" \
-    --disable-full-macros \
-    CFLAGS="${BASE_CFLAGS}" \
-    CXXFLAGS="${BASE_CFLAGS}"
-
-make -j"$(nproc)"
-make install.libs install.includes
-
-# ---------------------------------------------------------------------------
-# 8. Build libpsl (Public Suffix List library, needed by curl)
-# ---------------------------------------------------------------------------
-echo "Building libpsl"
-
-cd /build
-LIBPSL_VERSION=$(curl -fsS "https://api.github.com/repos/rockdaboot/libpsl/releases/latest" | \
-    jq -r '.tag_name')
-echo "Latest libpsl version: ${LIBPSL_VERSION}"
-curl -fsSLO "https://github.com/rockdaboot/libpsl/releases/download/${LIBPSL_VERSION}/libpsl-${LIBPSL_VERSION}.tar.gz"
-tar xf "libpsl-${LIBPSL_VERSION}.tar.gz"
-cd "libpsl-${LIBPSL_VERSION}"
-
-# Pre-generated configure is included in the release tarball
-
-./configure \
-    --prefix=/usr/local \
-    --enable-static \
-    --disable-shared \
-    --disable-gtk-doc \
-    --disable-runtime \
-    --disable-nls \
-    --disable-man \
-    --without-libintl-prefix \
-    --without-libiconv-prefix \
-    PKG_CONFIG="pkg-config --static" \
-    CFLAGS="${BASE_CFLAGS}"
-
-make -j"$(nproc)"
-make install
-
-# ---------------------------------------------------------------------------
-# 9. Build c-ares (async DNS resolver, needed by curl)
-# ---------------------------------------------------------------------------
 CARES_VERSION=$(curl -fsS "https://api.github.com/repos/c-ares/c-ares/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
-echo "Latest c-ares version: ${CARES_VERSION}"
+echo "c-ares: ${CARES_VERSION}"
 
-cd /build
-curl -fsSLO "https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz"
-tar xf "c-ares-${CARES_VERSION}.tar.gz"
-cd "c-ares-${CARES_VERSION}"
-
-cmake -B build \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DCARES_STATIC=ON \
-    -DCARES_SHARED=OFF \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
-    -DCMAKE_INSTALL_LIBDIR=lib
-
-cmake --build build -j"$(nproc)"
-cmake --install build
-
-# ---------------------------------------------------------------------------
-# 10. Build curl
-# ---------------------------------------------------------------------------
 CURL_TAG=$(curl -fsS "https://api.github.com/repos/curl/curl/releases/latest" | jq -r '.tag_name')
 CURL_VERSION=$(echo "$CURL_TAG" | sed 's/curl-//' | tr '_' '.')
-echo "Latest curl version: ${CURL_VERSION}"
+echo "curl: ${CURL_VERSION}"
 
-cd /build
-curl -fsSLO "https://github.com/curl/curl/archive/refs/tags/curl-${CURL_VERSION//./_}.tar.gz"
-tar xf "curl-${CURL_VERSION//./_}.tar.gz"
-cd "curl-curl-${CURL_VERSION//./_}"
-
-autoreconf -fi
-./configure \
-    --prefix=/usr/local \
-    --enable-static \
-    --disable-shared \
-    --disable-debug \
-    --disable-unix-sockets \
-    --disable-headers-api \
-    --disable-alt-svc \
-    --disable-hsts \
-    --without-brotli \
-    --with-libpsl \
-    --with-openssl \
-    --with-nghttp2 \
-    --without-nghttp3 \
-    --without-ngtcp2 \
-    --without-openssl-quic \
-    --with-zlib \
-    --enable-ares \
-    --enable-ipv6 \
-    --disable-ldap \
-    --disable-ldaps \
-    --disable-manual \
-    --disable-docs \
-    --disable-ipfs \
-    --disable-dict \
-    --disable-gopher \
-    --disable-imap \
-    --disable-mqtt \
-    --disable-pop3 \
-    --disable-rtsp \
-    --disable-smb \
-    --disable-smtp \
-    --disable-telnet \
-    --disable-tftp \
-    PKG_CONFIG="pkg-config --static" \
-    CFLAGS="${BASE_CFLAGS}" \
-    CXXFLAGS="${BASE_CFLAGS}"
-
-make -j"$(nproc)"
-make install
-
-# ---------------------------------------------------------------------------
-# 11. Build Boost (headers only)
-# ---------------------------------------------------------------------------
-echo "Building Boost ${BOOST_VERSION}"
-
-cd /build
-BOOST_CMAKE_FILE="${BOOST_VERSION}-cmake.tar.xz"
-curl -fsSLO "https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_CMAKE_FILE}"
-mkdir -p boost-src
-cd boost-src
-tar xf "/build/${BOOST_CMAKE_FILE}" --strip-components=1
-
-# For aMule's use case (boost::asio, header-only boost::system with
-# BOOST_ERROR_CODE_HEADER_ONLY), we only need the headers. No compiled
-# Boost libraries are required on Linux.
-cp -r boost /usr/local/include/boost
-
-# Extract version components from tag (e.g. boost-1.91.0-1 → 1.91.0, CMake 108100)
+BOOST_VERSION=$(curl -fsS "https://api.github.com/repos/boostorg/boost/releases?per_page=10" | \
+    jq -r '[.[] | select(.tag_name | test("beta") | not) | .tag_name][0]')
+echo "boost: ${BOOST_VERSION}"
 BOOST_VERSION_NUM="${BOOST_VERSION#boost-}"
-# Strip release revision suffix like -1, -2
 BOOST_VERSION_NUM="${BOOST_VERSION_NUM%%-*}"
 BOOST_VERSION_MAJOR="${BOOST_VERSION_NUM%%.*}"
 BOOST_VERSION_MINOR="${BOOST_VERSION_NUM#*.}"
@@ -398,7 +81,212 @@ BOOST_VERSION_MINOR="${BOOST_VERSION_MINOR%.*}"
 BOOST_VERSION_PATCH="${BOOST_VERSION_NUM##*.}"
 BOOST_VERSION_CMAKE=$(printf "%d%02d%02d" "${BOOST_VERSION_MAJOR}" "${BOOST_VERSION_MINOR}" "${BOOST_VERSION_PATCH}")
 
-# Also install CMake config so find_package(Boost CONFIG) can find it
+CRYPTOPP_VERSION=$(curl -fsS "https://api.github.com/repos/cryptopp-modern/cryptopp-modern/tags?per_page=5" | jq -r '.[0].name')
+echo "cryptopp: ${CRYPTOPP_VERSION}"
+
+WXWIDGETS_VERSION=$(curl -fsS "https://api.github.com/repos/wxWidgets/wxWidgets/releases" | \
+    jq -r '[.[] | select(.tag_name | startswith("v3.2")) | .tag_name][0]')
+echo "wxwidgets: ${WXWIDGETS_VERSION}"
+WX_VERSION_STRIP="${WXWIDGETS_VERSION#v}"
+
+READLINE_VERSION=$(curl -fsSL "https://ftp.gnu.org/gnu/readline/" | \
+    grep -oP 'readline-\d+\.\d+\.tar\.gz' | sed 's/readline-//;s/\.tar\.gz//' | sort -V | tail -1)
+echo "readline: ${READLINE_VERSION}"
+
+LIBPNG_TAG=$(curl -fsS "https://api.github.com/repos/pnggroup/libpng/git/matching-refs/tags/v1.6" | \
+    jq -r '[.[].ref | split("/")[2]] | sort | reverse[0]')
+echo "libpng: ${LIBPNG_TAG}"
+
+GD_VERSION=$(curl -fsS "https://api.github.com/repos/libgd/libgd/tags?per_page=10" | \
+    jq -r '[.[].name | select(test("^gd-"))][0]')
+echo "libgd: ${GD_VERSION}"
+GD_LIB_VERSION="${GD_VERSION#gd-}"
+
+PUPNP_VERSION=$(curl -fsS "https://api.github.com/repos/pupnp/pupnp/releases/latest" | jq -r '.tag_name')
+echo "pupnp: ${PUPNP_VERSION}"
+
+# ============================================================================
+# Part 2 — Download and extract source archives
+# ============================================================================
+mkdir -p /build
+cd /build
+
+# musl
+curl -fsSLO "https://git.musl-libc.org/cgit/musl/snapshot/musl-${MUSL_VERSION}.tar.gz"
+tar xf "musl-${MUSL_VERSION}.tar.gz"
+
+# rpmalloc
+curl -fsSLO "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_VERSION}.tar.gz"
+tar xf "${RPMALLOC_VERSION}.tar.gz"
+
+# zlib-ng
+curl -fsSLO "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/${ZLIB_NG_VERSION}.tar.gz"
+tar xf "${ZLIB_NG_VERSION}.tar.gz"
+
+# libressl
+curl -fsSLO "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-${LIBRESSL_VERSION}.tar.gz"
+tar xf "libressl-${LIBRESSL_VERSION}.tar.gz"
+
+# nghttp2
+curl -fsSLO "https://github.com/nghttp2/nghttp2/archive/refs/tags/v${NGHTTP2_VERSION}.tar.gz"
+tar xf "v${NGHTTP2_VERSION}.tar.gz"
+
+# ncurses (generic URL, determine dir after extract)
+curl -fsSLO "https://invisible-island.net/archives/ncurses/ncurses.tar.gz"
+tar xf ncurses.tar.gz
+NCURSES_DIR=$(tar tzf ncurses.tar.gz | head -1 | cut -d/ -f1)
+
+# libpsl
+curl -fsSLO "https://github.com/rockdaboot/libpsl/releases/download/${LIBPSL_VERSION}/libpsl-${LIBPSL_VERSION}.tar.gz"
+tar xf "libpsl-${LIBPSL_VERSION}.tar.gz"
+
+# c-ares
+curl -fsSLO "https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz"
+tar xf "c-ares-${CARES_VERSION}.tar.gz"
+
+# curl
+curl -fsSLO "https://github.com/curl/curl/archive/refs/tags/curl-${CURL_VERSION//./_}.tar.gz"
+tar xf "curl-${CURL_VERSION//./_}.tar.gz"
+
+# Boost (CMake release from GitHub Releases)
+BOOST_CMAKE_FILE="${BOOST_VERSION}-cmake.tar.xz"
+curl -fsSLO "https://github.com/boostorg/boost/releases/download/${BOOST_VERSION}/${BOOST_CMAKE_FILE}"
+mkdir -p boost-src && cd boost-src
+tar xf "/build/${BOOST_CMAKE_FILE}" --strip-components=1
+cd /build
+
+# cryptopp
+curl -fsSLO "https://github.com/cryptopp-modern/cryptopp-modern/archive/refs/tags/${CRYPTOPP_VERSION}.tar.gz"
+tar xf "${CRYPTOPP_VERSION}.tar.gz"
+
+# wxWidgets
+curl -fsSLO "https://github.com/wxWidgets/wxWidgets/releases/download/${WXWIDGETS_VERSION}/wxWidgets-${WX_VERSION_STRIP}.tar.bz2" || true
+if [ -f "wxWidgets-${WX_VERSION_STRIP}.tar.bz2" ]; then
+    tar xf "wxWidgets-${WX_VERSION_STRIP}.tar.bz2"
+else
+    git clone --depth=1 --branch "${WXWIDGETS_VERSION}" --filter=blob:none https://github.com/wxWidgets/wxWidgets.git
+    mv wxWidgets "wxWidgets-${WX_VERSION_STRIP}"
+fi
+
+# readline
+curl -fsSLO "https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz"
+tar xf "readline-${READLINE_VERSION}.tar.gz"
+
+# libpng
+curl -fsSLO "https://github.com/pnggroup/libpng/archive/refs/tags/${LIBPNG_TAG}.tar.gz"
+tar xf "${LIBPNG_TAG}.tar.gz"
+
+# libgd
+curl -fsSLO "https://github.com/libgd/libgd/archive/refs/tags/${GD_VERSION}.tar.gz"
+tar xf "${GD_VERSION}.tar.gz"
+
+# pupnp
+curl -fsSLO "https://github.com/pupnp/pupnp/archive/refs/tags/${PUPNP_VERSION}.tar.gz"
+tar xf "${PUPNP_VERSION}.tar.gz"
+
+# aMule (release or nightly)
+if [ -n "${VERSION_NUM}" ]; then
+    curl -fsSLO "https://github.com/amule-project/amule/archive/refs/tags/${VERSION_NUM}.tar.gz"
+    tar xf "${VERSION_NUM}.tar.gz"
+else
+    git clone --filter=blob:none --single-branch https://github.com/amule-project/amule.git
+    cd amule && git checkout "${AMULE_SHA}" && cd /build
+fi
+
+# ============================================================================
+# Part 3 — Build everything in dependency order
+# ============================================================================
+mkdir -p /build
+cd /build
+
+export LIBRARY_PATH="/usr/local/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+export CPATH="/usr/local/include${CPATH:+:$CPATH}"
+export PATH="/usr/local/bin:${PATH}"
+
+# ---------- 3.1 musl ----------
+cd "musl-${MUSL_VERSION}"
+./configure --prefix=/usr/local --disable-shared CFLAGS="${ARCH_CFLAGS} -O3 -pipe"
+make -j"$(nproc)"
+make install
+
+# ---------- 3.2 rpmalloc ----------
+cd "/build/rpmalloc-${RPMALLOC_VERSION}"
+case "${ARCH}" in amd64*|x86_64*) RPMALLOC_ARCH="x86-64" ;; arm64|aarch64) RPMALLOC_ARCH="arm64" ;; *) RPMALLOC_ARCH="" ;; esac
+python3 configure.py --lto -c release --toolchain gcc ${RPMALLOC_ARCH:+-a "${RPMALLOC_ARCH}"}
+ninja -j"$(nproc)" "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a"
+mkdir -p /usr/local/lib
+cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a" /usr/local/lib/
+
+# ---------- 3.3 zlib-ng ----------
+cd "/build/zlib-ng-${ZLIB_NG_VERSION}"
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF \
+    -DZLIB_COMPAT=ON -DWITH_AVX512=OFF -DWITH_AVX2=${ZLIB_AVX2} \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
+cmake --build build -j"$(nproc)"
+cmake --install build
+rm -f /usr/lib/pkgconfig/zlib.pc 2>/dev/null || true
+
+# ---------- 3.4 libressl ----------
+cd "/build/libressl-${LIBRESSL_VERSION}"
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
+    -DLIBRESSL_APPS=OFF -DLIBRESSL_TESTS=OFF \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
+cmake --build build -j"$(nproc)"
+cmake --install build
+
+# ---------- 3.5 nghttp2 ----------
+cd "/build/nghttp2-${NGHTTP2_VERSION}"
+autoreconf -fi
+./configure --enable-static --disable-shared --disable-debug --enable-lib-only \
+    PKG_CONFIG="pkg-config --static" CFLAGS="${BASE_CFLAGS}" CXXFLAGS="${BASE_CFLAGS}"
+make -j"$(nproc)"
+make install
+
+# ---------- 3.6 ncurses ----------
+cd "/build/${NCURSES_DIR}"
+mkdir -p build_w && cd build_w
+../configure --prefix=/usr/local --enable-static --disable-shared --enable-pc-files \
+    --with-pkg-config-libdir=/usr/local/lib/pkgconfig --without-debug --without-manpages \
+    --with-termlib --disable-big-core --disable-big-strings --disable-relink --disable-rpath \
+    --without-ada --without-tests --without-progs --with-fallback="linux" --disable-full-macros \
+    CFLAGS="${BASE_CFLAGS}" CXXFLAGS="${BASE_CFLAGS}"
+make -j"$(nproc)"
+make install.libs install.includes
+
+# ---------- 3.7 libpsl ----------
+cd "/build/libpsl-${LIBPSL_VERSION}"
+./configure --prefix=/usr/local --enable-static --disable-shared --disable-gtk-doc \
+    --disable-runtime --disable-nls --disable-man --without-libintl-prefix --without-libiconv-prefix \
+    PKG_CONFIG="pkg-config --static" CFLAGS="${BASE_CFLAGS}"
+make -j"$(nproc)"
+make install
+
+# ---------- 3.8 c-ares ----------
+cd "/build/c-ares-${CARES_VERSION}"
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
+    -DCARES_STATIC=ON -DCARES_SHARED=OFF \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_INSTALL_LIBDIR=lib
+cmake --build build -j"$(nproc)"
+cmake --install build
+
+# ---------- 3.9 curl ----------
+cd "/build/curl-curl-${CURL_VERSION//./_}"
+autoreconf -fi
+./configure --prefix=/usr/local --enable-static --disable-shared --disable-debug \
+    --disable-unix-sockets --disable-headers-api --disable-alt-svc --disable-hsts \
+    --without-brotli --with-libpsl --with-openssl --with-nghttp2 \
+    --without-nghttp3 --without-ngtcp2 --without-openssl-quic --with-zlib \
+    --enable-ares --enable-ipv6 \
+    --disable-ldap --disable-ldaps --disable-manual --disable-docs --disable-ipfs \
+    --disable-dict --disable-gopher --disable-imap --disable-mqtt --disable-pop3 \
+    --disable-rtsp --disable-smb --disable-smtp --disable-telnet --disable-tftp \
+    PKG_CONFIG="pkg-config --static" CFLAGS="${BASE_CFLAGS}" CXXFLAGS="${BASE_CFLAGS}"
+make -j"$(nproc)"
+make install
+
+# ---------- 3.10 Boost (headers only) ----------
+cd /build/boost-src
+cp -r boost /usr/local/include/boost
 mkdir -p "/usr/local/lib/cmake/boost_headers-${BOOST_VERSION_NUM}"
 cat > "/usr/local/lib/cmake/boost_headers-${BOOST_VERSION_NUM}/boost_headers-config.cmake" << 'BOOST_CMAKE_EOF'
 if(NOT TARGET Boost::headers)
@@ -409,9 +297,7 @@ if(NOT TARGET Boost::headers)
 endif()
 BOOST_CMAKE_EOF
 
-# Also create a minimal BoostConfig.cmake so find_package(Boost CONFIG) works
 cat > /usr/local/lib/cmake/BoostConfig.cmake << BOOST_CONFIG_EOF
-# Minimal BoostConfig.cmake for header-only usage
 include(CMakeFindDependencyMacro)
 if(NOT TARGET Boost::headers)
     add_library(Boost::headers INTERFACE IMPORTED)
@@ -424,8 +310,6 @@ set(Boost_VERSION ${BOOST_VERSION_CMAKE})
 set(Boost_VERSION_STRING "${BOOST_VERSION_NUM}")
 set(Boost_INCLUDE_DIRS "/usr/local/include")
 set(Boost_INCLUDE_DIR "/usr/local/include")
-
-# Define the component targets that find_package(Boost ... COMPONENTS ...) expects
 foreach(_component asio system date_time regex filesystem thread)
     if(NOT TARGET Boost::\${_component})
         add_library(Boost::\${_component} INTERFACE IMPORTED)
@@ -434,7 +318,6 @@ foreach(_component asio system date_time regex filesystem thread)
 endforeach()
 BOOST_CONFIG_EOF
 
-# Also provide BoostConfigVersion.cmake
 cat > /usr/local/lib/cmake/BoostConfigVersion.cmake << BOOST_VERSION_EOF
 set(PACKAGE_VERSION "${BOOST_VERSION_NUM}")
 if("\${PACKAGE_FIND_VERSION}" VERSION_GREATER "${BOOST_VERSION_NUM}")
@@ -447,208 +330,74 @@ else()
 endif()
 BOOST_VERSION_EOF
 
-# ---------------------------------------------------------------------------
-# 12. Build Crypto++
-# ---------------------------------------------------------------------------
-echo "Building Crypto++ ${CRYPTOPP_VERSION}"
-
-cd /build
-curl -fsSLO "https://github.com/cryptopp-modern/cryptopp-modern/archive/refs/tags/${CRYPTOPP_VERSION}.tar.gz"
-tar xf "${CRYPTOPP_VERSION}.tar.gz"
-cd "cryptopp-modern-${CRYPTOPP_VERSION}"
-
-# You can use an older cmake minimum to prevent it from needing newer cmake
-# But we have cmake 3.31+ in Alpine, so it's fine.
-sed -i 's/cmake_minimum_required(VERSION.*)/cmake_minimum_required(VERSION 3.10)/' CMakeLists.txt 2>/dev/null || true
-
-cmake -B build \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DCRYPTOPP_BUILD_TESTING=OFF \
-    -DCRYPTOPP_INSTALL=ON \
-    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}" \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
-    -DCMAKE_EXE_LINKER_FLAGS="-static" \
-    -DCMAKE_INSTALL_LIBDIR=lib
-
+# ---------- 3.11 Crypto++ ----------
+cd "/build/cryptopp-modern-${CRYPTOPP_VERSION}"
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
+    -DCRYPTOPP_BUILD_TESTING=OFF -DCRYPTOPP_INSTALL=ON \
+    -DCMAKE_CXX_FLAGS="${BASE_CFLAGS}" -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
+    -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
 cmake --build build -j"$(nproc)"
 cmake --install build
 
-# ---------------------------------------------------------------------------
-# 13. Build wxWidgets (wxBase + wxNet only, no GUI)
-# ---------------------------------------------------------------------------
-echo "Building wxWidgets ${WXWIDGETS_VERSION}"
-
-cd /build
-# Remove 'v' prefix for directory name
-WX_VERSION_STRIP="${WXWIDGETS_VERSION#v}"
-curl -fsSLO "https://github.com/wxWidgets/wxWidgets/releases/download/${WXWIDGETS_VERSION}/wxWidgets-${WX_VERSION_STRIP}.tar.bz2"
-if [ -f "wxWidgets-${WX_VERSION_STRIP}.tar.bz2" ]; then
-    tar xf "wxWidgets-${WX_VERSION_STRIP}.tar.bz2"
-else
-    # Fallback: use git clone
-    git clone --depth=1 --branch "${WXWIDGETS_VERSION}" --filter=blob:none https://github.com/wxWidgets/wxWidgets.git
-    mv wxWidgets "wxWidgets-${WX_VERSION_STRIP}"
-fi
-cd "wxWidgets-${WX_VERSION_STRIP}"
-
-# Ensure our custom-built tools and libraries are findable
-export PATH="/usr/local/bin:${PATH}"
-
-# Build wxBase + wxNet with libcurl backend for wxWebRequest
-# --disable-gui excludes all GUI code, giving us wxBase + wxNet
+# ---------- 3.12 wxWidgets ----------
+cd "/build/wxWidgets-${WX_VERSION_STRIP}"
 mkdir -p build_wx && cd build_wx
-
-../configure \
-    --prefix=/usr/local \
-    --disable-shared \
-    --enable-static \
-    --disable-gui \
-    --enable-monolithic \
-    --disable-debug_flag \
-    --enable-optimise \
-    --with-libcurl \
-    --without-expat \
-    --without-libjpeg \
-    --without-libpng \
-    --without-libtiff \
-    --without-sdl \
-    --without-odbc \
-    --without-libmspack \
-    --without-gtk \
-    --without-motif \
-    --without-x11 \
-    --disable-sys-libs \
-    --disable-richtext \
-    --disable-html \
-    --disable-xrc \
-    --disable-aui \
-    --disable-propgrid \
-    --disable-ribbon \
-    --disable-stc \
-    --disable-webkit \
-    --disable-mediactrl \
-    CFLAGS="${BASE_CFLAGS}" \
-    CXXFLAGS="${BASE_CFLAGS}" \
-    CPPFLAGS="-I/usr/local/include" \
-    LDFLAGS="-L/usr/local/lib -static" \
+../configure --prefix=/usr/local --disable-shared --enable-static --disable-gui \
+    --enable-monolithic --disable-debug_flag --enable-optimise --with-libcurl \
+    --without-expat --without-libjpeg --without-libpng --without-libtiff --without-sdl \
+    --without-odbc --without-libmspack --without-gtk --without-motif --without-x11 \
+    --disable-sys-libs --disable-richtext --disable-html --disable-xrc --disable-aui \
+    --disable-propgrid --disable-ribbon --disable-stc --disable-webkit --disable-mediactrl \
+    CFLAGS="${BASE_CFLAGS}" CXXFLAGS="${BASE_CFLAGS}" \
+    CPPFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib -static" \
     PKG_CONFIG="pkg-config --static"
-
 make -j"$(nproc)"
 make install
 
-# Fix wx-config to output static link flags
-# With --disable-gui the config is always base-unicode-static-*
+# wx-config wrapper (resolve real path once at build time)
 if [ -f /usr/local/lib/wx/config/base-unicode-static-3.2 ]; then
     WX_CONFIG_REAL="/usr/local/lib/wx/config/base-unicode-static-3.2"
 else
     WX_CONFIG_REAL=$(find /usr/local/lib/wx/config -name '*-unicode-static-*' -type f 2>/dev/null | head -1)
 fi
-echo "wx-config real: ${WX_CONFIG_REAL}"
-
-# Write a simple static wx-config wrapper
 cat > /usr/local/bin/wx-config << WXCONFIG_SCRIPT
 #!/bin/sh
 exec "${WX_CONFIG_REAL}" --static "\$@"
 WXCONFIG_SCRIPT
 chmod +x /usr/local/bin/wx-config
 
-# ---------------------------------------------------------------------------
-# 14. Build readline (for amulecmd)
-# ---------------------------------------------------------------------------
-echo "Building readline ${READLINE_VERSION}"
-
-cd /build
-curl -fsSLO "https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz"
-tar xf "readline-${READLINE_VERSION}.tar.gz"
-cd "readline-${READLINE_VERSION}"
-
-./configure \
-    --prefix=/usr/local \
-    --enable-static \
-    --disable-shared \
-    --with-curses \
-    PKG_CONFIG="pkg-config --static" \
-    CFLAGS="${BASE_CFLAGS}" \
-    CPPFLAGS="-I/usr/local/include" \
-    LDFLAGS="-L/usr/local/lib -static"
-
+# ---------- 3.13 readline ----------
+cd "/build/readline-${READLINE_VERSION}"
+./configure --prefix=/usr/local --enable-static --disable-shared --with-curses \
+    PKG_CONFIG="pkg-config --static" CFLAGS="${BASE_CFLAGS}" \
+    CPPFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib -static"
 make -j"$(nproc)" SHLIB_LIBS="-lncurses -ltinfo"
 make install
 
-# ---------------------------------------------------------------------------
-# 15. Build libpng (needed by libgd for CAS)
-# ---------------------------------------------------------------------------
-echo "Building libpng"
-
-cd /build
-LIBPNG_TAG=$(curl -fsS "https://api.github.com/repos/pnggroup/libpng/git/matching-refs/tags/v1.6" | \
-    jq -r '[.[].ref | split("/")[2]] | sort | reverse[0]')
-echo "Latest libpng version: ${LIBPNG_TAG}"
-curl -fsSLO "https://github.com/pnggroup/libpng/archive/refs/tags/${LIBPNG_TAG}.tar.gz"
-tar xf "${LIBPNG_TAG}.tar.gz"
-cd "libpng-${LIBPNG_TAG#v}"
-
-cmake -B build \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DPNG_SHARED=OFF \
-    -DPNG_STATIC=ON \
-    -DPNG_TESTS=OFF \
-    -DPNG_TOOLS=OFF \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
-    -DCMAKE_EXE_LINKER_FLAGS="-static" \
-    -DCMAKE_INSTALL_LIBDIR=lib
-
+# ---------- 3.14 libpng ----------
+cd "/build/libpng-${LIBPNG_TAG#v}"
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
+    -DPNG_SHARED=OFF -DPNG_STATIC=ON -DPNG_TESTS=OFF -DPNG_TOOLS=OFF \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
 cmake --build build -j"$(nproc)"
 cmake --install build
 
-# ---------------------------------------------------------------------------
-# 16. Build libgd (for C aMule Statistics)
-# ---------------------------------------------------------------------------
-echo "Building libgd"
-
-cd /build
-GD_VERSION=$(curl -fsS "https://api.github.com/repos/libgd/libgd/tags?per_page=10" | \
-    jq -r '[.[].name | select(test("^gd-"))][0]')
-echo "Latest libgd version: ${GD_VERSION}"
-curl -fsSLO "https://github.com/libgd/libgd/archive/refs/tags/${GD_VERSION}.tar.gz"
-tar xf "${GD_VERSION}.tar.gz"
-cd "libgd-${GD_VERSION}"
-
-cmake -B build \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DENABLE_PNG=ON \
-    -DENABLE_JPEG=OFF \
-    -DENABLE_TIFF=OFF \
-    -DENABLE_WEBP=OFF \
-    -DENABLE_FREETYPE=OFF \
-    -DENABLE_FONTCONFIG=OFF \
-    -DENABLE_XPM=OFF \
-    -DENABLE_ICONV=OFF \
-    -DENABLE_LIQ=OFF \
-    -DENABLE_RAQM=OFF \
-    -DENABLE_HEIF=OFF \
-    -DENABLE_AVIF=OFF \
-    -DENABLE_GD_FORMATS=OFF \
-    -DBUILD_TEST=OFF \
-    -DENABLE_CPP=OFF \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
-    -DCMAKE_EXE_LINKER_FLAGS="-static" \
-    -DCMAKE_INSTALL_LIBDIR=lib
-
+# ---------- 3.15 libgd ----------
+cd "/build/libgd-${GD_VERSION}"
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
+    -DENABLE_PNG=ON -DENABLE_JPEG=OFF -DENABLE_TIFF=OFF -DENABLE_WEBP=OFF \
+    -DENABLE_FREETYPE=OFF -DENABLE_FONTCONFIG=OFF -DENABLE_XPM=OFF -DENABLE_ICONV=OFF \
+    -DENABLE_LIQ=OFF -DENABLE_RAQM=OFF -DENABLE_HEIF=OFF -DENABLE_AVIF=OFF \
+    -DENABLE_GD_FORMATS=OFF -DBUILD_TEST=OFF -DENABLE_CPP=OFF \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
 cmake --build build -j"$(nproc)"
 cmake --install build
 
-# Install pkg-config file for gdlib so aMule can find it
-GD_LIB_VERSION="${GD_VERSION#gd-}"
 cat > /usr/local/lib/pkgconfig/gdlib.pc << GD_PC_EOF
 prefix=/usr/local
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
-
 Name: gdlib
 Description: GD graphics library
 Version: ${GD_LIB_VERSION}
@@ -656,79 +405,33 @@ Libs: -L\${libdir} -lgd -lpng -lz
 Cflags: -I\${includedir}
 GD_PC_EOF
 
-# ---------------------------------------------------------------------------
-# 17. Build pupnp (for UPnP support)
-# ---------------------------------------------------------------------------
-echo "Building pupnp"
-
-cd /build
-PUPNP_VERSION=$(curl -fsS "https://api.github.com/repos/pupnp/pupnp/releases/latest" | \
-    jq -r '.tag_name')
-echo "Latest pupnp version: ${PUPNP_VERSION}"
-curl -fsSLO "https://github.com/pupnp/pupnp/archive/refs/tags/${PUPNP_VERSION}.tar.gz"
-tar xf "${PUPNP_VERSION}.tar.gz"
-cd "pupnp-${PUPNP_VERSION}"
-
-cmake -B build \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DUPNP_BUILD_SHARED=OFF \
-    -DUPNP_BUILD_STATIC=ON \
-    -DUPNP_BUILD_SAMPLES=OFF \
-    -DUPNP_ENABLE_TESTING=OFF \
-    -DUPNP_ENABLE_OPEN_SSL=OFF \
-    -DUPNP_ENABLE_IPV6=ON \
+# ---------- 3.16 pupnp ----------
+cd "/build/pupnp-${PUPNP_VERSION}"
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF \
+    -DUPNP_BUILD_SHARED=OFF -DUPNP_BUILD_STATIC=ON -DUPNP_BUILD_SAMPLES=OFF \
+    -DUPNP_ENABLE_TESTING=OFF -DUPNP_ENABLE_OPEN_SSL=OFF -DUPNP_ENABLE_IPV6=ON \
     -DUPNP_ENABLE_DEBUG=OFF \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
-    -DCMAKE_EXE_LINKER_FLAGS="-static" \
-    -DCMAKE_INSTALL_LIBDIR=lib
-
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_INSTALL_LIBDIR=lib
 cmake --build build -j"$(nproc)"
 cmake --install build
 
-# ---------------------------------------------------------------------------
-# 18. Build aMule
-# ---------------------------------------------------------------------------
-echo "Building aMule"
-cd /build
-
-if [ -n "${VERSION_NUM}" ]; then
-    # Download source tarball for the version tag
-    curl -fsSLO \
-        "https://github.com/amule-project/amule/archive/refs/tags/${VERSION_NUM}.tar.gz"
-    tar xf "${VERSION_NUM}.tar.gz"
-    cd "amule-${VERSION_NUM}"
-else
-    git clone --filter=blob:none --single-branch https://github.com/amule-project/amule.git
-    cd amule
-    git checkout "${AMULE_SHA}"
-fi
-
+# ---------- 3.17 aMule ----------
 AMULE_PREFIX="/opt/amule"
 DEPS_PREFIX="/usr/local"
 
-mkdir -p build && cd build
+if [ -n "${VERSION_NUM}" ]; then
+    cd "/build/amule-${VERSION_NUM}"
+else
+    cd /build/amule
+fi
 
-cmake .. \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DBUILD_TESTING=OFF \
-    -DBoost_DIR=${DEPS_PREFIX} \
-    -DBUILD_WEBSERVER=ON \
-    -DBUILD_CAS=ON \
-    -DENABLE_NLS=OFF \
-    -DBUILD_MONOLITHIC=OFF \
-    -DBUILD_REMOTEGUI=OFF \
-    -DBUILD_DAEMON=ON \
-    -DBUILD_WXCAS=OFF \
-    -DBUILD_ALCC=ON \
-    -DBUILD_AMULECMD=ON \
-    -DBUILD_ALC=OFF \
-    -DBUILD_FILEVIEW=ON \
-    -DCMAKE_INSTALL_PREFIX=${AMULE_PREFIX} \
-    -DENABLE_IP2COUNTRY=OFF \
-    -DENABLE_UPNP=ON \
-    -DZLIB_INCLUDE_DIR=${DEPS_PREFIX}/include \
-    -DZLIB_LIBRARY=${DEPS_PREFIX}/lib/libz.a \
+mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBoost_DIR=${DEPS_PREFIX} \
+    -DBUILD_WEBSERVER=ON -DBUILD_CAS=ON -DENABLE_NLS=OFF -DBUILD_MONOLITHIC=OFF \
+    -DBUILD_REMOTEGUI=OFF -DBUILD_DAEMON=ON -DBUILD_WXCAS=OFF -DBUILD_ALCC=ON \
+    -DBUILD_AMULECMD=ON -DBUILD_ALC=OFF -DBUILD_FILEVIEW=ON \
+    -DCMAKE_INSTALL_PREFIX=${AMULE_PREFIX} -DENABLE_IP2COUNTRY=OFF -DENABLE_UPNP=ON \
+    -DZLIB_INCLUDE_DIR=${DEPS_PREFIX}/include -DZLIB_LIBRARY=${DEPS_PREFIX}/lib/libz.a \
     -DCMAKE_CXX_FLAGS="${BASE_CFLAGS} -I${DEPS_PREFIX}/include" \
     -DCMAKE_C_FLAGS="${BASE_CFLAGS} -I${DEPS_PREFIX}/include" \
     -DCMAKE_EXE_LINKER_FLAGS="-static -L${DEPS_PREFIX}/lib -lrpmalloc" \
@@ -737,39 +440,25 @@ cmake .. \
     -DCRYPTOPP_INCLUDE_PREFIX="cryptopp" \
     -DCRYPTOPP_LIBRARY=${DEPS_PREFIX}/lib/libcryptopp.a \
     -DCRYPTOPP_INCLUDE_DIR=${DEPS_PREFIX}/include
-
 make -j"$(nproc)"
-
-# ---------------------------------------------------------------------------
-# 19. Install and package /opt/amule
-# ---------------------------------------------------------------------------
 make install
 
+# ---------- Package output ----------
 OUTPUT_DIR="/output"
 PKG_DIR="${OUTPUT_DIR}/amule"
 mkdir -p "${PKG_DIR}"
-
-# Copy /opt/amule to package directory
 cp -a "${AMULE_PREFIX}"/* "${PKG_DIR}/"
-
-# Strip binaries
 for bin in amuled amulecmd amuleweb; do
     f="${PKG_DIR}/bin/${bin}"
     [ -f "$f" ] && strip "$f"
 done
 
-# Create tar.gz archive
 PACKAGE_NAME="amule-linux-${ARCH}${SUFFIX}"
-tar -czf "${OUTPUT_DIR}/${PACKAGE_NAME}.tar.gz" \
-    -C "${OUTPUT_DIR}" \
-    amule/
+tar -czf "${OUTPUT_DIR}/${PACKAGE_NAME}.tar.gz" -C "${OUTPUT_DIR}" amule/
 
 echo "=== Build complete ==="
 echo "Package: ${OUTPUT_DIR}/${PACKAGE_NAME}.tar.gz"
 for f in "${PKG_DIR}/bin"/*; do
-    if [ -f "$f" ]; then
-        file "$f"
-        ls -lh "$f"
-    fi
+    [ -f "$f" ] && file "$f" && ls -lh "$f"
 done
 ls -lh "${OUTPUT_DIR}/${PACKAGE_NAME}.tar.gz"
